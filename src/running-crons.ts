@@ -1,7 +1,9 @@
 import {
     callAsynchronously,
-    ensureError,
+    ensureErrorAndPrependMessage,
     extractDuplicates,
+    log,
+    type LoggerLogs,
     type PartialWithUndefined,
 } from '@augment-vir/common';
 import {getNowInUtcTimezone, type Timezone} from 'date-vir';
@@ -24,7 +26,8 @@ import {getMillisecondsTillNextExecution} from './parse-cron.js';
  */
 export type RunningCronsOptions = PartialWithUndefined<{
     /**
-     * Silence all logging.
+     * Silence all logging. If you still want to log errors, listen to {@link CronErrorEvent} and log
+     * its error.
      *
      * @default false
      */
@@ -71,6 +74,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
     } = {};
 
     protected readonly pausedCrons: {[CronName in string]: boolean} = {};
+    protected readonly log: LoggerLogs;
 
     constructor(
         public readonly context: Context,
@@ -78,6 +82,9 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         public readonly options: Readonly<RunningCronsOptions> = {},
     ) {
         super();
+
+        this.log = log.if(!options.silent);
+
         const {duplicates} = extractDuplicates(crons.map((cron) => cron.name));
 
         if (duplicates.length) {
@@ -118,18 +125,19 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             return false;
         }
 
-        delete this.pausedCrons[name];
-
         const cron = this.crons.find((cron) => cron.name === name);
 
         /* node:coverage ignore next 3: type guard that technically cannot be false */
         if (!cron) {
             return false;
         }
+
+        this.log.faint(`Resumed cron '${cron.name}'`);
+        delete this.pausedCrons[cron.name];
         this.dispatch(
             new CronResumeEvent({
                 detail: {
-                    name,
+                    name: cron.name,
                     at: getNowInUtcTimezone(),
                 },
             }),
@@ -158,6 +166,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             if (this.options.forceStartNextExecution) {
                 this.setNextCron(cron);
             }
+            this.log.info(`Starting cron '${cron.name}'`);
             this.dispatch(
                 new CronStartEvent({
                     detail: {
@@ -169,8 +178,10 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             let error: Error | undefined;
             try {
                 await cron.callback(this.context);
+                this.log.success(`Finished cron '${cron.name}'`);
             } catch (caught) {
-                error = ensureError(caught);
+                error = ensureErrorAndPrependMessage(caught, `Cron '${cron.name}' failed:`);
+                this.log.error(error);
                 this.dispatch(
                     new CronErrorEvent({
                         detail: {
@@ -213,6 +224,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         if (!cron || this.pausedCrons[cron.name]) {
             return false;
         }
+        this.log.faint(`Paused cron '${cron.name}'`);
         this.pausedCrons[cron.name] = true;
 
         globalThis.clearTimeout(this.timeouts[cron.name]);
