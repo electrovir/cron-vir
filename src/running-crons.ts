@@ -26,6 +26,12 @@ import {getMillisecondsTillNextExecution} from './parse-cron.js';
  */
 export type RunningCronsOptions = PartialWithUndefined<{
     /**
+     * Immediately invoke all crons, then proceed as usual.
+     *
+     * @default false
+     */
+    runAllImmediately: boolean;
+    /**
      * Silence all logging. If you still want to log errors, listen to {@link CronErrorEvent} and log
      * its error.
      *
@@ -100,7 +106,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             // eslint-disable-next-line sonarjs/no-async-constructor
             void callAsynchronously(() => {
                 this.crons.forEach((cron) => {
-                    if (this.setNextCron(cron)) {
+                    if (this.setNextCron(cron, this.options.runAllImmediately)) {
                         this.dispatch(
                             new CronResumeEvent({
                                 detail: {
@@ -147,7 +153,10 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
     }
 
     /** Set the next iteration of the given cron. */
-    protected setNextCron(cron: Readonly<CronDefinition<Context, string>>): boolean {
+    protected setNextCron(
+        cron: Readonly<CronDefinition<Context, string>>,
+        immediate?: boolean | undefined,
+    ): boolean {
         if (this.pausedCrons[cron.name]) {
             return false;
         }
@@ -158,57 +167,61 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         });
 
         globalThis.clearTimeout(this.timeouts[cron.name]);
-        this.timeouts[cron.name] = globalThis.setTimeout(async () => {
-            /* node:coverage ignore next 3: cannot consistently trigger this */
-            if (this.pausedCrons[cron.name]) {
-                return;
-            }
-            if (this.options.forceStartNextExecution) {
-                this.setNextCron(cron);
-            }
-            this.log.info(`Starting cron '${cron.name}'`);
-            this.dispatch(
-                new CronStartEvent({
-                    detail: {
-                        name: cron.name,
-                        at: getNowInUtcTimezone(),
-                    },
-                }),
-            );
-            let error: Error | undefined;
-            try {
-                await cron.callback(this.context);
-                this.log.success(`Finished cron '${cron.name}'`);
-            } catch (caught) {
-                error = ensureErrorAndPrependMessage(caught, `Cron '${cron.name}' failed:`);
-                this.log.error(error);
-                this.dispatch(
-                    new CronErrorEvent({
-                        detail: {
-                            error,
-                            name: cron.name,
-                            at: getNowInUtcTimezone(),
-                        },
-                    }),
-                );
-            } finally {
-                this.dispatch(
-                    new CronFinishEvent({
-                        detail: {
-                            name: cron.name,
-                            error,
-                            at: getNowInUtcTimezone(),
-                        },
-                    }),
-                );
-                if (this.options.abortOnError && error) {
-                    this.destroy();
+        this.timeouts[cron.name] = globalThis.setTimeout(
+            async () => {
+                /* node:coverage ignore next 3: cannot consistently trigger this */
+                if (this.pausedCrons[cron.name]) {
+                    return;
                 }
-                if (!this.options.forceStartNextExecution) {
+                if (this.options.forceStartNextExecution) {
                     this.setNextCron(cron);
                 }
-            }
-        }, timeoutMilliseconds);
+                this.log.info(`Starting cron '${cron.name}'`);
+                this.dispatch(
+                    new CronStartEvent({
+                        detail: {
+                            name: cron.name,
+                            at: getNowInUtcTimezone(),
+                        },
+                    }),
+                );
+                let error: Error | undefined;
+                try {
+                    await cron.callback(this.context);
+                    this.log.success(`Finished cron '${cron.name}'`);
+                } catch (caught) {
+                    error = ensureErrorAndPrependMessage(caught, `Cron '${cron.name}' failed:`);
+                    this.log.error(error);
+                    this.dispatch(
+                        new CronErrorEvent({
+                            detail: {
+                                error,
+                                name: cron.name,
+                                at: getNowInUtcTimezone(),
+                            },
+                        }),
+                    );
+                } finally {
+                    this.dispatch(
+                        new CronFinishEvent({
+                            detail: {
+                                name: cron.name,
+                                error,
+                                at: getNowInUtcTimezone(),
+                            },
+                        }),
+                    );
+                    if (this.options.abortOnError && error) {
+                        this.destroy();
+                    }
+                    if (!this.options.forceStartNextExecution) {
+                        this.setNextCron(cron);
+                    }
+                }
+            },
+            /* node:coverage ignore next 1 */
+            immediate ? 0 : timeoutMilliseconds,
+        );
 
         return true;
     }
