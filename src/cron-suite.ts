@@ -9,7 +9,10 @@ import {RunningCrons, type RunningCronsOptions} from './running-crons.js';
  *
  * @category Internal
  */
-export type CronCallback<Context> = (context: Context) => MaybePromise<void>;
+export type CronCallback<Context> = (params: {
+    context: Context;
+    silent: boolean;
+}) => MaybePromise<void>;
 
 /**
  * Define a cron suite with a context type. Use the output of this to define cron jobs and then,

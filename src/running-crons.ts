@@ -187,7 +187,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                 );
                 let error: Error | undefined;
                 try {
-                    await cron.callback(this.context);
+                    await cron.callback({context: this.context, silent: !!this.options.silent});
                     this.log.success(`Finished cron '${cron.name}'`);
                 } catch (caught) {
                     error = ensureErrorAndPrependMessage(caught, `Cron '${cron.name}' failed:`);
