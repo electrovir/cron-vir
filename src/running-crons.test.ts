@@ -20,9 +20,15 @@ describe(RunningCrons.name, () => {
         const instance = runMockCrons(context, crons, options);
         Object.values(cronEvents).forEach((eventConstructor) => {
             instance.listen(eventConstructor, (eventInstance) => {
-                getOrSet(events as Record<string, string[]>, eventConstructor.name, () => []).push(
-                    eventInstance.detail.name,
-                );
+                const cronName = 'detail' in eventInstance ? eventInstance.detail.name : undefined;
+
+                if (cronName) {
+                    getOrSet(
+                        events as Record<string, string[]>,
+                        eventConstructor.name,
+                        () => [],
+                    ).push(cronName);
+                }
             });
         });
 

@@ -1,6 +1,6 @@
 {
     "name": "cron-vir",
-    "version": "0.2.0",
+    "version": "1.0.0",
     "description": "A declarative cron function runner.",
     "keywords": [
         "cron",
@@ -32,7 +32,7 @@
         "publish": "virmator publish npm run test:all",
         "start": "tsx src/demo.mock.ts",
         "test": "virmator test node",
-        "test:all": "npm run compile && concurrently --colors --kill-others-on-fail -c auto --names tests,spelling,format,docs,deps,lint \"npm run test:coverage\" \"npm run test:spelling\" \"npm run test:format\" \"npm run test:docs\" \"npm run test:deps\" \"npm run test:lint\"",
+        "test:all": "npm run compile && runstorm --names tests,spelling,format,docs,deps,lint \"npm run test:coverage\" \"npm run test:spelling\" \"npm run test:format\" \"npm run test:docs\" \"npm run test:deps\" \"npm run test:lint\"",
         "test:coverage": "npm run test coverage",
         "test:deps": "virmator deps check",
         "test:docs": "virmator docs check",
@@ -81,6 +81,7 @@
         "prettier-plugin-packagejson": "^2.5.19",
         "prettier-plugin-sort-json": "^4.1.1",
         "prettier-plugin-toml": "^2.0.6",
+        "runstorm": "^0.6.1",
         "typedoc": "^0.28.11",
         "typescript": "^5.9.2",
         "typescript-eslint": "^8.41.0",
