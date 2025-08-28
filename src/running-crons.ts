@@ -15,6 +15,7 @@ import {
     CronFinishEvent,
     CronPauseEvent,
     CronResumeEvent,
+    CronsDestroyEvent,
     CronStartEvent,
 } from './cron-events.js';
 import {getMillisecondsTillNextExecution} from './parse-cron.js';
@@ -271,6 +272,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
     /** Clean up resources and stop all crons. */
     public override destroy() {
         this.pauseAll();
+        this.dispatch(new CronsDestroyEvent());
         super.destroy();
     }
 }

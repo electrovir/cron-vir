@@ -1,6 +1,6 @@
 import {type Values} from '@augment-vir/common';
 import {type FullDate, type UtcTimezone} from 'date-vir';
-import {defineTypedCustomEvent} from 'typed-event-target';
+import {defineTypedCustomEvent, defineTypedEvent} from 'typed-event-target';
 
 /**
  * Emitted when a cron job is resumed or started.
@@ -31,6 +31,13 @@ export class CronStartEvent extends defineTypedCustomEvent<{
     name: string;
     at: FullDate<UtcTimezone>;
 }>()('cron-start') {}
+
+/**
+ * Emitted when a `RunningCrons` instance gets destroyed.
+ *
+ * @category Events
+ */
+export class CronsDestroyEvent extends defineTypedEvent('crons-destroy') {}
 /**
  * Emitted when a cron job finishes executing on its current interval.
  *
@@ -62,6 +69,7 @@ export const cronEvents = {
     CronPauseEvent,
     CronResumeEvent,
     CronStartEvent,
+    CronsDestroyEvent,
 };
 /**
  * All cron events in an array.
