@@ -1,5 +1,5 @@
 import {type MaybePromise} from '@augment-vir/common';
-import {type Timezone} from 'date-vir';
+import {type FullDate, type Timezone} from 'date-vir';
 import {type CronDefinition} from './cron-definition.js';
 import {type CronExpression} from './cron-expression.js';
 import {RunningCrons, type RunningCronsOptions} from './running-crons.js';
@@ -12,6 +12,8 @@ import {RunningCrons, type RunningCronsOptions} from './running-crons.js';
 export type CronCallback<Context> = (params: {
     context: Context;
     silent: boolean;
+    /** This will be undefined the first time the cron is run. */
+    lastExecutedAt: Readonly<FullDate> | undefined;
 }) => MaybePromise<void>;
 
 /**

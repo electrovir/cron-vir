@@ -6,7 +6,7 @@ import {
     type LoggerLogs,
     type PartialWithUndefined,
 } from '@augment-vir/common';
-import {getNowInUtcTimezone, type Timezone} from 'date-vir';
+import {type FullDate, getNowInUtcTimezone, type Timezone} from 'date-vir';
 import {ListenTarget} from 'typed-event-target';
 import {type CronDefinition} from './cron-definition.js';
 import {
@@ -80,6 +80,8 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         [CronName in string]: Readonly<ReturnType<typeof globalThis.setTimeout>> | undefined;
     } = {};
 
+    protected readonly lastExecutionTimes: Partial<{[CronName in string]: FullDate | undefined}> =
+        {};
     protected readonly pausedCrons: {[CronName in string]: boolean} = {};
     protected readonly log: LoggerLogs;
 
@@ -188,7 +190,11 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                 );
                 let error: Error | undefined;
                 try {
-                    await cron.callback({context: this.context, silent: !!this.options.silent});
+                    await cron.callback({
+                        context: this.context,
+                        silent: !!this.options.silent,
+                        lastExecutedAt: this.lastExecutionTimes[cron.name],
+                    });
                     this.log.success(`Finished cron '${cron.name}'`);
                 } catch (caught) {
                     error = ensureErrorAndPrependMessage(caught, `Cron '${cron.name}' failed:`);
@@ -203,12 +209,15 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                         }),
                     );
                 } finally {
+                    const now = getNowInUtcTimezone();
+
+                    this.lastExecutionTimes[cron.name] = now;
                     this.dispatch(
                         new CronFinishEvent({
                             detail: {
                                 name: cron.name,
                                 error,
-                                at: getNowInUtcTimezone(),
+                                at: now,
                             },
                         }),
                     );
