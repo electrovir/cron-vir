@@ -35,7 +35,9 @@ export const mockCrons = [
             dayOfWeek: '*',
         },
         async () => {
-            await wait({seconds: 1.5});
+            await wait({
+                seconds: 1.5,
+            });
         },
         utcTimezone,
     ),

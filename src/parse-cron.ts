@@ -65,8 +65,19 @@ export function getMillisecondsTillNextExecution(
     const timezone = options.timezone || userTimezone;
     const currentTime = options.currentTime || getNowFullDate(timezone);
 
-    const nextDate = parseCronExpression(cronExpression, {currentTime, timezone});
-    const diff = diffDates({start: currentTime, end: nextDate}, {milliseconds: true});
+    const nextDate = parseCronExpression(cronExpression, {
+        currentTime,
+        timezone,
+    });
+    const diff = diffDates(
+        {
+            start: currentTime,
+            end: nextDate,
+        },
+        {
+            milliseconds: true,
+        },
+    );
 
     return diff.milliseconds;
 }

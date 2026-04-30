@@ -37,5 +37,10 @@ const myCron = defineCron(
     },
 );
 
-runCrons({user: 'ubuntu'}, [myCron]);
+runCrons(
+    {
+        user: 'ubuntu',
+    },
+    [myCron],
+);
 ```

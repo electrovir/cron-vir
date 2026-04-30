@@ -11,8 +11,13 @@ const {defineCron, runCrons} = defineCronSuite();
 runCrons(undefined, [
     defineCron('fast cron', '* * * * * *', () => {
         const diff = diffDates(
-            {start: startTime, end: getNowInUtcTimezone()},
-            {seconds: true},
+            {
+                start: startTime,
+                end: getNowInUtcTimezone(),
+            },
+            {
+                seconds: true,
+            },
         ).seconds;
         log.info(`${Math.round(diff)} seconds`);
     }),
@@ -27,8 +32,13 @@ runCrons(undefined, [
         },
         () => {
             const diff = diffDates(
-                {start: startTime, end: getNowInUtcTimezone()},
-                {minutes: true},
+                {
+                    start: startTime,
+                    end: getNowInUtcTimezone(),
+                },
+                {
+                    minutes: true,
+                },
             ).minutes;
             log.warning(`${Math.round(diff)} minutes`);
         },

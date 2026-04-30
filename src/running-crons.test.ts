@@ -40,7 +40,9 @@ describe(RunningCrons.name, () => {
 
     it('runs crons', async () => {
         await waitUntil.isTruthy(() => getNowInUtcTimezone().second === 0, {
-            timeout: {minutes: 1.5},
+            timeout: {
+                minutes: 1.5,
+            },
         });
 
         const {events, instance} = setupTest(mockContext, mockCrons);
@@ -53,7 +55,9 @@ describe(RunningCrons.name, () => {
         }
 
         /** Wait a bit to ensure the crons really stopped. */
-        await wait({seconds: 10});
+        await wait({
+            seconds: 10,
+        });
 
         assert.deepEquals(events, {
             CronResumeEvent: [
@@ -80,7 +84,9 @@ describe(RunningCrons.name, () => {
             {
                 name: 'long cron',
                 async callback() {
-                    await wait({seconds: 4});
+                    await wait({
+                        seconds: 4,
+                    });
                 },
                 cronExpression: {
                     second: '*',
@@ -106,7 +112,9 @@ describe(RunningCrons.name, () => {
         }
 
         /** Wait a bit to ensure the crons really stopped. */
-        await wait({seconds: 10});
+        await wait({
+            seconds: 10,
+        });
 
         assert.deepEquals(events, {
             CronResumeEvent: [
@@ -132,7 +140,9 @@ describe(RunningCrons.name, () => {
                 {
                     name: 'long cron',
                     async callback() {
-                        await wait({seconds: 4});
+                        await wait({
+                            seconds: 4,
+                        });
                     },
                     cronExpression: {
                         second: '*',
@@ -145,7 +155,9 @@ describe(RunningCrons.name, () => {
                     timezone: utcTimezone,
                 },
             ],
-            {forceStartNextExecution: true},
+            {
+                forceStartNextExecution: true,
+            },
         );
         try {
             instance.resumeAll();
@@ -228,10 +240,14 @@ describe(RunningCrons.name, () => {
         });
     });
     it('can start paused', async () => {
-        const {events, instance} = setupTest(mockContext, mockCrons, {startPaused: true});
+        const {events, instance} = setupTest(mockContext, mockCrons, {
+            startPaused: true,
+        });
 
         try {
-            await wait({seconds: 4});
+            await wait({
+                seconds: 4,
+            });
 
             assert.deepEquals(events, {}, 'no events should have been fired');
         } finally {
@@ -271,7 +287,9 @@ describe(RunningCrons.name, () => {
         });
     });
     it('resumes a single cron', async () => {
-        const {events, instance} = setupTest(mockContext, mockCrons, {startPaused: true});
+        const {events, instance} = setupTest(mockContext, mockCrons, {
+            startPaused: true,
+        });
 
         try {
             assert.isTrue(instance.resumeCron('mock 1'));
@@ -303,7 +321,9 @@ describe(RunningCrons.name, () => {
     });
     it('handles a cron error', async () => {
         await waitUntil.isTruthy(() => getNowInUtcTimezone().second === 0, {
-            timeout: {minutes: 1.5},
+            timeout: {
+                minutes: 1.5,
+            },
         });
 
         const {events, instance} = setupTest(mockContext, [
@@ -378,7 +398,9 @@ describe(RunningCrons.name, () => {
 
         await waitUntil.isLengthAtLeast(1, () => events.CronStartEvent || []);
 
-        await wait({seconds: 4});
+        await wait({
+            seconds: 4,
+        });
 
         assert.deepEquals(events, {
             CronResumeEvent: [
