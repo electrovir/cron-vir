@@ -1,3 +1,4 @@
+import {assertWrap} from '@augment-vir/assert';
 import {
     callAsynchronously,
     ensureErrorAndPrependMessage,
@@ -82,7 +83,14 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
 
     protected readonly lastExecutionTimes: Partial<{[CronName in string]: FullDate | undefined}> =
         {};
-    protected readonly pausedCrons: {[CronName in string]: boolean} = {};
+    public readonly cronStatuses: {
+        [CronName in string]: {
+            /** If `true`, the cron is currently executing. */
+            inFlight: boolean;
+            /** If `true`, the cron has been paused (so the next execution will not happen). */
+            paused: boolean;
+        };
+    } = {};
     protected readonly log: LoggerLogs;
 
     constructor(
@@ -100,11 +108,14 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             throw new Error(`Cannot have duplicate cron names: ${duplicates.join(',')}`);
         }
 
-        if (this.options.startPaused) {
-            this.crons.forEach((cron) => {
-                this.pausedCrons[cron.name] = true;
-            });
-        } else {
+        this.crons.forEach((cron) => {
+            this.cronStatuses[cron.name] = {
+                inFlight: false,
+                paused: !!this.options.startPaused,
+            };
+        });
+
+        if (!this.options.startPaused) {
             /** Call this asynchronously so the consumer has a chance to attach event listeners. */
             // eslint-disable-next-line sonarjs/no-async-constructor
             void callAsynchronously(() => {
@@ -130,7 +141,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
      * @returns `false` if no cron by the given name was found or if the cron was already resumed.
      */
     public resumeCron(name: Name): boolean {
-        if (!this.pausedCrons[name]) {
+        if (!this.cronStatuses[name]?.paused) {
             return false;
         }
 
@@ -142,7 +153,10 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         }
 
         this.log.faint(`Resumed cron '${cron.name}'`);
-        delete this.pausedCrons[cron.name];
+        assertWrap.isDefined(
+            this.cronStatuses[cron.name],
+            `Failed to find status for cron '${cron.name}'.`,
+        ).paused = false;
         this.dispatch(
             new CronResumeEvent({
                 detail: {
@@ -160,7 +174,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         cron: Readonly<CronDefinition<Context, string>>,
         immediate?: boolean | undefined,
     ): boolean {
-        if (this.pausedCrons[cron.name]) {
+        if (this.cronStatuses[cron.name]?.paused) {
             return false;
         }
 
@@ -173,7 +187,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         this.timeouts[cron.name] = globalThis.setTimeout(
             async () => {
                 /* node:coverage ignore next 3: cannot consistently trigger this */
-                if (this.pausedCrons[cron.name]) {
+                if (this.cronStatuses[cron.name]?.paused) {
                     return;
                 }
                 if (this.options.forceStartNextExecution) {
@@ -188,6 +202,11 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                         },
                     }),
                 );
+                const status = assertWrap.isDefined(
+                    this.cronStatuses[cron.name],
+                    `Failed to find status for cron '${cron.name}'.`,
+                );
+                status.inFlight = true;
                 let error: Error | undefined;
                 try {
                     await cron.callback({
@@ -209,6 +228,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                         }),
                     );
                 } finally {
+                    status.inFlight = false;
                     const now = getNowInUtcTimezone();
 
                     this.lastExecutionTimes[cron.name] = now;
@@ -237,18 +257,22 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
     }
 
     /**
-     * Pause a specific cron job.
+     * Pause a specific cron job. This does not affect any currently running jobs for the cron. It
+     * merely prevents the next scheduled execution from running.
      *
      * @returns `false` if no cron by the given name was found or if the cron was already paused.
      */
     public pauseCron(name: Name): boolean {
         const cron = this.crons.find((cron) => cron.name === name);
 
-        if (!cron || this.pausedCrons[cron.name]) {
+        if (!cron || this.cronStatuses[cron.name]?.paused) {
             return false;
         }
         this.log.faint(`Paused cron '${cron.name}'`);
-        this.pausedCrons[cron.name] = true;
+        assertWrap.isDefined(
+            this.cronStatuses[cron.name],
+            `Failed to find status for cron '${cron.name}'.`,
+        ).paused = true;
 
         globalThis.clearTimeout(this.timeouts[cron.name]);
         delete this.timeouts[cron.name];
@@ -271,7 +295,10 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         });
     }
 
-    /** Pause all cron jobs. */
+    /**
+     * Pause all cron jobs. This does not affect any currently running crons. It merely prevents the
+     * next scheduled executions from running.
+     */
     public pauseAll() {
         this.crons.forEach((cron) => {
             this.pauseCron(cron.name);
