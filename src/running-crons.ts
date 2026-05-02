@@ -8,7 +8,17 @@ import {
     type PartialWithUndefined,
     randomInteger,
 } from '@augment-vir/common';
-import {convertDuration, type FullDate, getNowInUtcTimezone, type Timezone} from 'date-vir';
+import {
+    convertDuration,
+    diffDates,
+    type FullDate,
+    getNowFullDate,
+    getNowInUtcTimezone,
+    type Timezone,
+    toNewTimezone,
+    userTimezone,
+    utcTimezone,
+} from 'date-vir';
 import {ListenTarget} from 'typed-event-target';
 import {type CronDefinition} from './cron-definition.js';
 import {
@@ -20,7 +30,7 @@ import {
     CronsDestroyEvent,
     CronStartEvent,
 } from './cron-events.js';
-import {getMillisecondsTillNextExecution} from './parse-cron.js';
+import {parseCronExpression} from './parse-cron.js';
 
 /**
  * Options for {@link RunningCrons}.
@@ -179,6 +189,23 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             return false;
         }
 
+        const cronTimezone =
+            /* node:coverage ignore next 1: all tests use UTC timezones */
+            cron.timezone ?? this.options.timezone ?? userTimezone;
+        const now = getNowFullDate(cronTimezone);
+        const nextScheduledTime = parseCronExpression(cron.cronExpression, {
+            currentTime: now,
+            timezone: cronTimezone,
+        });
+        const baseTimeoutMilliseconds = diffDates(
+            {
+                start: now,
+                end: nextScheduledTime,
+            },
+            {
+                milliseconds: true,
+            },
+        ).milliseconds;
         const jitterMilliseconds = cron.jitter
             ? randomInteger({
                   min: 0,
@@ -187,11 +214,9 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                   }).milliseconds,
               })
             : 0;
-        const timeoutMilliseconds =
-            getMillisecondsTillNextExecution(cron.cronExpression, {
-                /* node:coverage ignore next 1: all tests use UTC timezones */
-                timezone: cron.timezone ?? this.options.timezone,
-            }) + jitterMilliseconds;
+        const timeoutMilliseconds = baseTimeoutMilliseconds + jitterMilliseconds;
+        /* node:coverage ignore next 1 */
+        const scheduledAt = toNewTimezone(immediate ? now : nextScheduledTime, utcTimezone);
 
         globalThis.clearTimeout(this.timeouts[cron.name]);
         this.timeouts[cron.name] = globalThis.setTimeout(
@@ -223,6 +248,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                         context: this.context,
                         silent: !!this.options.silent,
                         lastExecutedAt: this.lastExecutionTimes[cron.name],
+                        scheduledAt,
                     });
                     this.log.success(`Finished cron '${cron.name}'`);
                 } catch (caught) {

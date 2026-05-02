@@ -1,7 +1,7 @@
 import {assert, waitUntil} from '@augment-vir/assert';
 import {getOrSet, wait} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
-import {getNowInUtcTimezone, utcTimezone} from 'date-vir';
+import {type FullDate, getNowInUtcTimezone, utcTimezone} from 'date-vir';
 import {type CronDefinition} from './cron-definition.js';
 import {cronEvents} from './cron-events.js';
 import {mockContext, mockCrons, runMockCrons} from './cron-suite.mock.js';
@@ -375,6 +375,38 @@ describe(RunningCrons.name, () => {
                 'errors',
             ],
         });
+    });
+    it('passes scheduledAt to the callback', async () => {
+        const captured: FullDate[] = [];
+        const {instance} = setupTest(mockContext, [
+            {
+                name: 'scheduled-test',
+                callback({scheduledAt}) {
+                    captured.push(scheduledAt);
+                },
+                cronExpression: {
+                    second: '*',
+                    minute: '*',
+                    hour: '*',
+                    dayOfMonth: '*',
+                    month: '*',
+                    dayOfWeek: '*',
+                },
+                timezone: utcTimezone,
+                jitter: undefined,
+            },
+        ]);
+
+        try {
+            await waitUntil.isLengthAtLeast(1, () => captured);
+        } finally {
+            instance.destroy();
+        }
+
+        const first = captured[0];
+        assert.isDefined(first);
+        assert.strictEquals(first.timezone, utcTimezone);
+        assert.strictEquals(first.millisecond, 0);
     });
     it('applies per-run jitter', async () => {
         const {events, instance} = setupTest(mockContext, [
