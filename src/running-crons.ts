@@ -6,8 +6,9 @@ import {
     log,
     type LoggerLogs,
     type PartialWithUndefined,
+    randomInteger,
 } from '@augment-vir/common';
-import {type FullDate, getNowInUtcTimezone, type Timezone} from 'date-vir';
+import {convertDuration, type FullDate, getNowInUtcTimezone, type Timezone} from 'date-vir';
 import {ListenTarget} from 'typed-event-target';
 import {type CronDefinition} from './cron-definition.js';
 import {
@@ -178,10 +179,19 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             return false;
         }
 
-        const timeoutMilliseconds = getMillisecondsTillNextExecution(cron.cronExpression, {
-            /* node:coverage ignore next 1: all tests use UTC timezones */
-            timezone: cron.timezone ?? this.options.timezone,
-        });
+        const jitterMilliseconds = cron.jitter
+            ? randomInteger({
+                  min: 0,
+                  max: convertDuration(cron.jitter, {
+                      milliseconds: true,
+                  }).milliseconds,
+              })
+            : 0;
+        const timeoutMilliseconds =
+            getMillisecondsTillNextExecution(cron.cronExpression, {
+                /* node:coverage ignore next 1: all tests use UTC timezones */
+                timezone: cron.timezone ?? this.options.timezone,
+            }) + jitterMilliseconds;
 
         globalThis.clearTimeout(this.timeouts[cron.name]);
         this.timeouts[cron.name] = globalThis.setTimeout(

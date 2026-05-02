@@ -1,5 +1,5 @@
 import {type MaybePromise} from '@augment-vir/common';
-import {type FullDate, type Timezone} from 'date-vir';
+import {type AnyDuration, type FullDate, type Timezone} from 'date-vir';
 import {type CronDefinition} from './cron-definition.js';
 import {type CronExpression} from './cron-expression.js';
 import {RunningCrons, type RunningCronsOptions} from './running-crons.js';
@@ -56,8 +56,9 @@ export function defineCronSuite<Context = undefined>() {
             cronExpression: string | CronExpression,
             callback: CronCallback<Context>,
             timezone?: Timezone | undefined,
+            jitter?: AnyDuration | undefined,
         ) {
-            return defineCron<Context, Name>(name, cronExpression, callback, timezone);
+            return defineCron<Context, Name>(name, cronExpression, callback, timezone, jitter);
         },
         /** Runs all given crons. */
         runCrons<const Name extends string>(
@@ -76,11 +77,13 @@ function defineCron<Context, const Name extends string>(
     cronExpression: string | CronExpression,
     callback: CronCallback<Context>,
     timezone?: Timezone | undefined,
+    jitter?: AnyDuration | undefined,
 ): CronDefinition<Context, Name> {
     return {
         callback,
         name,
         cronExpression,
         timezone,
+        jitter,
     };
 }

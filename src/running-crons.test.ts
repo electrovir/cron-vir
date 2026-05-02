@@ -97,6 +97,7 @@ describe(RunningCrons.name, () => {
                     dayOfWeek: '*',
                 },
                 timezone: utcTimezone,
+                jitter: undefined,
             },
         ]);
         try {
@@ -153,6 +154,7 @@ describe(RunningCrons.name, () => {
                         dayOfWeek: '*',
                     },
                     timezone: utcTimezone,
+                    jitter: undefined,
                 },
             ],
             {
@@ -223,6 +225,7 @@ describe(RunningCrons.name, () => {
                         dayOfWeek: '*',
                     },
                     timezone: utcTimezone,
+                    jitter: undefined,
                 },
                 {
                     name: 'a',
@@ -235,6 +238,7 @@ describe(RunningCrons.name, () => {
                         dayOfWeek: '*',
                     },
                     timezone: utcTimezone,
+                    jitter: undefined,
                 },
             ]);
         });
@@ -341,6 +345,7 @@ describe(RunningCrons.name, () => {
                     dayOfWeek: '*',
                 },
                 timezone: utcTimezone,
+                jitter: undefined,
             },
         ]);
 
@@ -371,6 +376,40 @@ describe(RunningCrons.name, () => {
             ],
         });
     });
+    it('applies per-run jitter', async () => {
+        const {events, instance} = setupTest(mockContext, [
+            {
+                name: 'jittered',
+                callback: () => {},
+                cronExpression: {
+                    second: '*',
+                    minute: '*',
+                    hour: '*',
+                    dayOfMonth: '*',
+                    month: '*',
+                    dayOfWeek: '*',
+                },
+                timezone: utcTimezone,
+                /**
+                 * A week-long jitter makes the chance of firing within the wait window below ~7e-6,
+                 * so this test is effectively deterministic without stubbing the random source.
+                 */
+                jitter: {
+                    days: 7,
+                },
+            },
+        ]);
+
+        try {
+            await wait({
+                seconds: 4,
+            });
+
+            assert.deepEquals(events.CronStartEvent || [], []);
+        } finally {
+            instance.destroy();
+        }
+    });
     it('can kill the whole thing on a cron error', async () => {
         const {events, instance} = setupTest(
             mockContext,
@@ -389,6 +428,7 @@ describe(RunningCrons.name, () => {
                         dayOfWeek: '*',
                     },
                     timezone: utcTimezone,
+                    jitter: undefined,
                 },
             ],
             {
