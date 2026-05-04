@@ -117,7 +117,8 @@ describe(RunningCrons.name, () => {
             seconds: 10,
         });
 
-        assert.deepEquals(events, {
+        const {CronMissedEvent: missed, ...rest} = events;
+        assert.deepEquals(rest, {
             CronResumeEvent: [
                 'long cron',
             ],
@@ -133,6 +134,54 @@ describe(RunningCrons.name, () => {
                 'long cron',
             ],
         });
+        assert.isLengthAtLeast(missed || [], 1);
+    });
+    it('emits a single missed event with the count of missed iterations', async () => {
+        await waitUntil.isTruthy(() => getNowInUtcTimezone().second === 0, {
+            timeout: {
+                minutes: 1.5,
+            },
+        });
+
+        const missedCounts: number[] = [];
+        const {events, instance} = setupTest(mockContext, [
+            {
+                name: 'overrun',
+                async callback() {
+                    await wait({
+                        seconds: 4,
+                    });
+                },
+                cronExpression: {
+                    second: '*',
+                    minute: '*',
+                    hour: '*',
+                    dayOfMonth: '*',
+                    month: '*',
+                    dayOfWeek: '*',
+                },
+                timezone: utcTimezone,
+                jitter: undefined,
+            },
+        ]);
+        instance.listen(cronEvents.CronMissedEvent, (event) => {
+            missedCounts.push(event.detail.count);
+        });
+
+        try {
+            await waitUntil.isLengthAtLeast(1, () => events.CronMissedEvent || [], {
+                timeout: {
+                    seconds: 30,
+                },
+            });
+        } finally {
+            instance.destroy();
+        }
+
+        assert.isLengthExactly(events.CronMissedEvent || [], missedCounts.length);
+        const firstCount = missedCounts[0];
+        assert.isDefined(firstCount);
+        assert.isAtLeast(firstCount, 3);
     });
     it('can immediately fire crons', async () => {
         const {events, instance} = setupTest(
@@ -491,5 +540,101 @@ describe(RunningCrons.name, () => {
                 'errors',
             ],
         });
+    });
+    it('reports unhandled rejections via CronErrorEvent', () => {
+        const captured: {name: string; error: Error}[] = [];
+        const instance = runMockCrons(mockContext, mockCrons, {
+            startPaused: true,
+        });
+        instance.listen(cronEvents.CronErrorEvent, (event) => {
+            captured.push({
+                name: event.detail.name,
+                error: event.detail.error,
+            });
+        });
+
+        try {
+            const listener = process.listeners('unhandledRejection').at(-1) as (
+                reason: unknown,
+                promise: Promise<unknown>,
+            ) => void;
+            listener(new Error('escaped rejection'), Promise.resolve());
+        } finally {
+            instance.destroy();
+        }
+
+        const first = captured[0];
+        assert.isDefined(first);
+        assert.strictEquals(first.name, 'unhandledRejection');
+        assert.isIn('Unhandled promise rejection', first.error.message);
+        assert.isIn('escaped rejection', first.error.message);
+    });
+    it('reports uncaught exceptions via CronErrorEvent', () => {
+        const captured: {name: string; error: Error}[] = [];
+        const instance = runMockCrons(mockContext, mockCrons, {
+            startPaused: true,
+        });
+        instance.listen(cronEvents.CronErrorEvent, (event) => {
+            captured.push({
+                name: event.detail.name,
+                error: event.detail.error,
+            });
+        });
+
+        try {
+            const listener = process.listeners('uncaughtExceptionMonitor').at(-1) as (
+                error: Error,
+                origin: string,
+            ) => void;
+            listener(new Error('fatal'), 'uncaughtException');
+        } finally {
+            instance.destroy();
+        }
+
+        const first = captured[0];
+        assert.isDefined(first);
+        assert.strictEquals(first.name, 'uncaughtException');
+        assert.isIn('Uncaught exception', first.error.message);
+        assert.isIn('fatal', first.error.message);
+    });
+    it('skips the uncaughtExceptionMonitor handler when disabled', () => {
+        const before = process.listenerCount('uncaughtExceptionMonitor');
+        const instance = runMockCrons(mockContext, mockCrons, {
+            startPaused: true,
+            disableUncaughtExceptionHandler: true,
+        });
+
+        try {
+            assert.strictEquals(process.listenerCount('uncaughtExceptionMonitor'), before);
+        } finally {
+            instance.destroy();
+        }
+    });
+    it('removes process listeners on destroy', () => {
+        const before = {
+            unhandledRejection: process.listenerCount('unhandledRejection'),
+            uncaughtExceptionMonitor: process.listenerCount('uncaughtExceptionMonitor'),
+        };
+
+        const instance = runMockCrons(mockContext, mockCrons, {
+            startPaused: true,
+        });
+
+        assert.strictEquals(
+            process.listenerCount('unhandledRejection'),
+            before.unhandledRejection + 1,
+        );
+        assert.strictEquals(
+            process.listenerCount('uncaughtExceptionMonitor'),
+            before.uncaughtExceptionMonitor + 1,
+        );
+
+        instance.destroy();
+
+        assert.strictEquals(process.listenerCount('unhandledRejection'), before.unhandledRejection);
+        assert.strictEquals(
+            process.listenerCount('uncaughtExceptionMonitor'),
+            before.uncaughtExceptionMonitor,
+        );
     });
 });

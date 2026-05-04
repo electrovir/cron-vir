@@ -59,6 +59,19 @@ export class CronErrorEvent extends defineTypedCustomEvent<{
     at: FullDate<UtcTimezone>;
 }>()('cron-error') {}
 /**
+ * Emitted when a cron job's execution takes so long that one or more of its scheduled executions
+ * are skipped. Only fires when `forceStartNextExecution` is `false` (the default).
+ *
+ * @category Events
+ */
+export class CronMissedEvent extends defineTypedCustomEvent<{
+    name: string;
+    /** How many scheduled iterations were skipped during the previous execution. */
+    count: number;
+    /** The time at which the miss was detected. */
+    at: FullDate<UtcTimezone>;
+}>()('cron-missed') {}
+/**
  * All cron events keyed by their constructor names.
  *
  * @category Events
@@ -66,6 +79,7 @@ export class CronErrorEvent extends defineTypedCustomEvent<{
 export const cronEvents = {
     CronErrorEvent,
     CronFinishEvent,
+    CronMissedEvent,
     CronPauseEvent,
     CronResumeEvent,
     CronStartEvent,

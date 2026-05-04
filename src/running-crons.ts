@@ -1,5 +1,6 @@
 import {assertWrap} from '@augment-vir/assert';
 import {
+    type AnyFunction,
     callAsynchronously,
     ensureErrorAndPrependMessage,
     extractDuplicates,
@@ -25,6 +26,7 @@ import {
     type AllCronEvents,
     CronErrorEvent,
     CronFinishEvent,
+    CronMissedEvent,
     CronPauseEvent,
     CronResumeEvent,
     CronsDestroyEvent,
@@ -79,6 +81,13 @@ export type RunningCronsOptions = PartialWithUndefined<{
      * this timezone.
      */
     timezone: Timezone;
+    /**
+     * If `true`, uncaught exception error handlers are _not_ attached, which will allow unhandled
+     * async throws to crash the whole process.
+     *
+     * @default false
+     */
+    disableUncaughtExceptionHandler: boolean;
 }>;
 
 /**
@@ -100,9 +109,16 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             inFlight: boolean;
             /** If `true`, the cron has been paused (so the next execution will not happen). */
             paused: boolean;
+            /**
+             * Running count of scheduled iterations that were skipped because a previous execution
+             * was still in flight. Reset to 0 each time a {@link CronMissedEvent} is dispatched.
+             */
+            missedCount: number;
         };
     } = {};
     protected readonly log: LoggerLogs;
+    protected readonly unhandledRejectionHandler: AnyFunction | undefined;
+    protected readonly uncaughtExceptionMonitorHandler: AnyFunction | undefined;
 
     constructor(
         public readonly context: Context,
@@ -123,8 +139,44 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             this.cronStatuses[cron.name] = {
                 inFlight: false,
                 paused: !!this.options.startPaused,
+                missedCount: 0,
             };
         });
+
+        if (
+            typeof process !== 'undefined' &&
+            typeof process.on === 'function' &&
+            !this.options.disableUncaughtExceptionHandler
+        ) {
+            this.unhandledRejectionHandler = (reason) => {
+                this.dispatch(
+                    new CronErrorEvent({
+                        detail: {
+                            name: 'unhandledRejection',
+                            error: ensureErrorAndPrependMessage(
+                                reason,
+                                'Unhandled promise rejection.',
+                            ),
+                            at: getNowInUtcTimezone(),
+                        },
+                    }),
+                );
+            };
+            process.on('unhandledRejection', this.unhandledRejectionHandler);
+
+            this.uncaughtExceptionMonitorHandler = (error) => {
+                this.dispatch(
+                    new CronErrorEvent({
+                        detail: {
+                            name: 'uncaughtException',
+                            error: ensureErrorAndPrependMessage(error, 'Uncaught exception.'),
+                            at: getNowInUtcTimezone(),
+                        },
+                    }),
+                );
+            };
+            process.on('uncaughtExceptionMonitor', this.uncaughtExceptionMonitorHandler);
+        }
 
         if (!this.options.startPaused) {
             /** Call this asynchronously so the consumer has a chance to attach event listeners. */
@@ -184,6 +236,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
     protected setNextCron(
         cron: Readonly<CronDefinition<Context, string>>,
         immediate?: boolean | undefined,
+        previousScheduledAt?: FullDate | undefined,
     ): boolean {
         if (this.cronStatuses[cron.name]?.paused) {
             return false;
@@ -194,18 +247,21 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             cron.timezone ?? this.options.timezone ?? userTimezone;
         const now = getNowFullDate(cronTimezone);
         const nextScheduledTime = parseCronExpression(cron.cronExpression, {
-            currentTime: now,
+            currentTime: previousScheduledAt ?? now,
             timezone: cronTimezone,
         });
-        const baseTimeoutMilliseconds = diffDates(
-            {
-                start: now,
-                end: nextScheduledTime,
-            },
-            {
-                milliseconds: true,
-            },
-        ).milliseconds;
+        const baseTimeoutMilliseconds = Math.max(
+            0,
+            diffDates(
+                {
+                    start: now,
+                    end: nextScheduledTime,
+                },
+                {
+                    milliseconds: true,
+                },
+            ).milliseconds,
+        );
         const jitterMilliseconds = cron.jitter
             ? randomInteger({
                   min: 0,
@@ -225,9 +281,32 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                 if (this.cronStatuses[cron.name]?.paused) {
                     return;
                 }
-                if (this.options.forceStartNextExecution) {
-                    this.setNextCron(cron);
+
+                this.setNextCron(cron, false, scheduledAt);
+
+                const status = assertWrap.isDefined(
+                    this.cronStatuses[cron.name],
+                    `Failed to find status for cron '${cron.name}'.`,
+                );
+
+                if (!this.options.forceStartNextExecution && status.inFlight) {
+                    status.missedCount += 1;
+                    return;
                 }
+
+                if (status.missedCount > 0) {
+                    this.dispatch(
+                        new CronMissedEvent({
+                            detail: {
+                                name: cron.name,
+                                count: status.missedCount,
+                                at: getNowInUtcTimezone(),
+                            },
+                        }),
+                    );
+                    status.missedCount = 0;
+                }
+
                 this.log.info(`Starting cron '${cron.name}'`);
                 this.dispatch(
                     new CronStartEvent({
@@ -236,10 +315,6 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                             at: getNowInUtcTimezone(),
                         },
                     }),
-                );
-                const status = assertWrap.isDefined(
-                    this.cronStatuses[cron.name],
-                    `Failed to find status for cron '${cron.name}'.`,
                 );
                 status.inFlight = true;
                 let error: Error | undefined;
@@ -279,9 +354,6 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                     );
                     if (this.options.abortOnError && error) {
                         this.destroy();
-                    }
-                    if (!this.options.forceStartNextExecution) {
-                        this.setNextCron(cron);
                     }
                 }
             },
@@ -344,6 +416,12 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
     /** Clean up resources and stop all crons. */
     public override destroy() {
         this.pauseAll();
+        if (this.unhandledRejectionHandler) {
+            process.off('unhandledRejection', this.unhandledRejectionHandler);
+        }
+        if (this.uncaughtExceptionMonitorHandler) {
+            process.off('uncaughtExceptionMonitor', this.uncaughtExceptionMonitorHandler);
+        }
         this.dispatch(new CronsDestroyEvent());
         super.destroy();
     }
