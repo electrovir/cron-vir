@@ -103,6 +103,9 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
 
     protected readonly lastExecutionTimes: Partial<{[CronName in string]: FullDate | undefined}> =
         {};
+    protected readonly lastExecutionScheduledAtTimes: Partial<{
+        [CronName in string]: FullDate | undefined;
+    }> = {};
     public readonly cronStatuses: {
         [CronName in string]: {
             /** If `true`, the cron is currently executing. */
@@ -323,6 +326,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                         context: this.context,
                         silent: !!this.options.silent,
                         lastExecutedAt: this.lastExecutionTimes[cron.name],
+                        lastExecutionScheduledAt: this.lastExecutionScheduledAtTimes[cron.name],
                         scheduledAt,
                     });
                     this.log.success(`Finished cron '${cron.name}'`);
@@ -343,6 +347,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                     const now = getNowInUtcTimezone();
 
                     this.lastExecutionTimes[cron.name] = now;
+                    this.lastExecutionScheduledAtTimes[cron.name] = scheduledAt;
                     this.dispatch(
                         new CronFinishEvent({
                             detail: {

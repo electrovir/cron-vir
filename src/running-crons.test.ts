@@ -457,6 +457,48 @@ describe(RunningCrons.name, () => {
         assert.strictEquals(first.timezone, utcTimezone);
         assert.strictEquals(first.millisecond, 0);
     });
+    it('passes lastExecutionScheduledAt to the callback', async () => {
+        const captured: {
+            scheduledAt: FullDate;
+            lastExecutionScheduledAt: FullDate | undefined;
+        }[] = [];
+        const {instance} = setupTest(mockContext, [
+            {
+                name: 'last-scheduled-test',
+                callback({scheduledAt, lastExecutionScheduledAt}) {
+                    captured.push({
+                        scheduledAt,
+                        lastExecutionScheduledAt,
+                    });
+                },
+                cronExpression: {
+                    second: '*',
+                    minute: '*',
+                    hour: '*',
+                    dayOfMonth: '*',
+                    month: '*',
+                    dayOfWeek: '*',
+                },
+                timezone: utcTimezone,
+                jitter: undefined,
+            },
+        ]);
+
+        try {
+            await waitUntil.isLengthAtLeast(2, () => captured);
+        } finally {
+            instance.destroy();
+        }
+
+        const [
+            first,
+            second,
+        ] = captured;
+        assert.isDefined(first);
+        assert.isDefined(second);
+        assert.strictEquals(first.lastExecutionScheduledAt, undefined);
+        assert.deepEquals(second.lastExecutionScheduledAt, first.scheduledAt);
+    });
     it('applies per-run jitter', async () => {
         const {events, instance} = setupTest(mockContext, [
             {

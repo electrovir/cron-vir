@@ -15,6 +15,11 @@ export type CronCallback<Context> = (params: {
     /** This will be undefined the first time the cron is run. */
     lastExecutedAt: Readonly<FullDate> | undefined;
     /**
+     * The `scheduledAt` value from the previous execution of this cron. This will be undefined the
+     * first time the cron is run.
+     */
+    lastExecutionScheduledAt: Readonly<FullDate> | undefined;
+    /**
      * The time at which this run was scheduled to start, based on the cron expression. This may
      * differ from the actual start time due to event-loop blocking, or other delays. For runs
      * triggered by `runAllImmediately`, this is the time the run was kicked off.
