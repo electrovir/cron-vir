@@ -35,6 +35,16 @@ import {
 import {parseCronExpression} from './parse-cron.js';
 
 /**
+ * Constructor params for {@link RunningCrons}.
+ *
+ * @category Internal
+ */
+export type RunningCronsParams<Context, Name extends string> = RunningCronsOptions & {
+    context: Context;
+    crons: ReadonlyArray<Readonly<CronDefinition<Context, Name>>>;
+};
+
+/**
  * Options for {@link RunningCrons}.
  *
  * @category Internal
@@ -123,25 +133,21 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
     protected readonly unhandledRejectionHandler: AnyFunction | undefined;
     protected readonly uncaughtExceptionMonitorHandler: AnyFunction | undefined;
 
-    constructor(
-        public readonly context: Context,
-        public readonly crons: ReadonlyArray<Readonly<CronDefinition<Context, Name>>>,
-        public readonly options: Readonly<RunningCronsOptions> = {},
-    ) {
+    constructor(public readonly params: Readonly<RunningCronsParams<Context, Name>>) {
         super();
 
-        this.log = log.if(!options.silent);
+        this.log = log.if(!params.silent);
 
-        const {duplicates} = extractDuplicates(crons.map((cron) => cron.name));
+        const {duplicates} = extractDuplicates(params.crons.map((cron) => cron.name));
 
         if (duplicates.length) {
             throw new Error(`Cannot have duplicate cron names: ${duplicates.join(',')}`);
         }
 
-        this.crons.forEach((cron) => {
+        this.params.crons.forEach((cron) => {
             this.cronStatuses[cron.name] = {
                 inFlight: false,
-                paused: !!this.options.startPaused,
+                paused: !!this.params.startPaused,
                 missedCount: 0,
             };
         });
@@ -149,7 +155,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         if (
             typeof process !== 'undefined' &&
             typeof process.on === 'function' &&
-            !this.options.disableUncaughtExceptionHandler
+            !this.params.disableUncaughtExceptionHandler
         ) {
             this.unhandledRejectionHandler = (reason) => {
                 this.dispatch(
@@ -181,12 +187,17 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             process.on('uncaughtExceptionMonitor', this.uncaughtExceptionMonitorHandler);
         }
 
-        if (!this.options.startPaused) {
+        if (!this.params.startPaused) {
             /** Call this asynchronously so the consumer has a chance to attach event listeners. */
             // eslint-disable-next-line sonarjs/no-async-constructor
             void callAsynchronously(() => {
-                this.crons.forEach((cron) => {
-                    if (this.setNextCron(cron, this.options.runAllImmediately)) {
+                this.params.crons.forEach((cron) => {
+                    if (
+                        this.setNextCron({
+                            cron,
+                            immediate: this.params.runAllImmediately,
+                        })
+                    ) {
                         this.dispatch(
                             new CronResumeEvent({
                                 detail: {
@@ -211,7 +222,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             return false;
         }
 
-        const cron = this.crons.find((cron) => cron.name === name);
+        const cron = this.params.crons.find((cron) => cron.name === name);
 
         /* node:coverage ignore next 3: type guard that technically cannot be false */
         if (!cron) {
@@ -232,24 +243,31 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             }),
         );
 
-        return this.setNextCron(cron);
+        return this.setNextCron({
+            cron,
+        });
     }
 
     /** Set the next iteration of the given cron. */
-    protected setNextCron(
-        cron: Readonly<CronDefinition<Context, string>>,
-        immediate?: boolean | undefined,
-        previousScheduledAt?: FullDate | undefined,
-    ): boolean {
+    protected setNextCron({
+        cron,
+        immediate,
+        previousScheduledAt,
+    }: Readonly<{
+        cron: Readonly<CronDefinition<Context, string>>;
+        immediate?: boolean | undefined;
+        previousScheduledAt?: FullDate | undefined;
+    }>): boolean {
         if (this.cronStatuses[cron.name]?.paused) {
             return false;
         }
 
         const cronTimezone =
             /* node:coverage ignore next 1: all tests use UTC timezones */
-            cron.timezone ?? this.options.timezone ?? userTimezone;
+            cron.timezone ?? this.params.timezone ?? userTimezone;
         const now = getNowFullDate(cronTimezone);
-        const nextScheduledTime = parseCronExpression(cron.cronExpression, {
+        const nextScheduledTime = parseCronExpression({
+            cronExpression: cron.cronExpression,
             currentTime: previousScheduledAt ?? now,
             timezone: cronTimezone,
         });
@@ -285,14 +303,18 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                     return;
                 }
 
-                this.setNextCron(cron, false, scheduledAt);
+                this.setNextCron({
+                    cron,
+                    immediate: false,
+                    previousScheduledAt: scheduledAt,
+                });
 
                 const status = assertWrap.isDefined(
                     this.cronStatuses[cron.name],
                     `Failed to find status for cron '${cron.name}'.`,
                 );
 
-                if (!this.options.forceStartNextExecution && status.inFlight) {
+                if (!this.params.forceStartNextExecution && status.inFlight) {
                     status.missedCount += 1;
                     return;
                 }
@@ -323,8 +345,8 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                 let error: Error | undefined;
                 try {
                     await cron.callback({
-                        context: this.context,
-                        silent: !!this.options.silent,
+                        context: this.params.context,
+                        silent: !!this.params.silent,
                         lastExecutedAt: this.lastExecutionTimes[cron.name],
                         lastExecutionScheduledAt: this.lastExecutionScheduledAtTimes[cron.name],
                         scheduledAt,
@@ -357,7 +379,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                             },
                         }),
                     );
-                    if (this.options.abortOnError && error) {
+                    if (this.params.abortOnError && error) {
                         this.destroy();
                     }
                 }
@@ -376,7 +398,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
      * @returns `false` if no cron by the given name was found or if the cron was already paused.
      */
     public pauseCron(name: Name): boolean {
-        const cron = this.crons.find((cron) => cron.name === name);
+        const cron = this.params.crons.find((cron) => cron.name === name);
 
         if (!cron || this.cronStatuses[cron.name]?.paused) {
             return false;
@@ -403,7 +425,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
 
     /** Resume all paused cron jobs. */
     public resumeAll() {
-        this.crons.forEach((cron) => {
+        this.params.crons.forEach((cron) => {
             this.resumeCron(cron.name);
         });
     }
@@ -413,7 +435,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
      * next scheduled executions from running.
      */
     public pauseAll() {
-        this.crons.forEach((cron) => {
+        this.params.crons.forEach((cron) => {
             this.pauseCron(cron.name);
         });
     }

@@ -13,11 +13,12 @@ import {
 import {createExpressionString, type CronExpression} from './cron-expression.js';
 
 /**
- * Options for {@link parseCronExpression}.
+ * Params for {@link parseCronExpression}.
  *
  * @category Internal
  */
-export type ParseCronOptions = {
+export type ParseCronParams = {
+    cronExpression: string | CronExpression;
     currentTime: FullDate;
     timezone: Timezone;
 };
@@ -30,13 +31,14 @@ export type ParseCronOptions = {
  * @category Internal
  * @returns The next date and time on which the cron should execute.
  */
-export function parseCronExpression(
-    cronExpression: string | CronExpression,
-    options: Readonly<ParseCronOptions>,
-): FullDate {
+export function parseCronExpression({
+    cronExpression,
+    currentTime,
+    timezone,
+}: Readonly<ParseCronParams>): FullDate {
     const finalOptions: CronExpressionOptions = {
-        tz: options.timezone,
-        currentDate: toTimestamp(options.currentTime),
+        tz: timezone,
+        currentDate: toTimestamp(currentTime),
     };
 
     const finalExpression = check.isString(cronExpression)
@@ -45,10 +47,21 @@ export function parseCronExpression(
 
     const parsedExpression = CronExpressionParser.parse(finalExpression, finalOptions);
 
-    const nextExecution = createFullDate(parsedExpression.next().toDate(), options.timezone);
+    const nextExecution = createFullDate(parsedExpression.next().toDate(), timezone);
 
     return nextExecution;
 }
+
+/**
+ * Params for {@link getMillisecondsTillNextExecution}.
+ *
+ * @category Internal
+ */
+export type MillisecondsTillNextExecutionParams = PartialWithUndefined<
+    Omit<ParseCronParams, 'cronExpression'>
+> & {
+    cronExpression: string | CronExpression;
+};
 
 /**
  * Determines how many milliseconds are needed till the next cron execution by parsing a cron
@@ -59,13 +72,13 @@ export function parseCronExpression(
  * @returns Milliseconds till the next execution.
  */
 export function getMillisecondsTillNextExecution(
-    cronExpression: string | CronExpression,
-    options: Readonly<PartialWithUndefined<ParseCronOptions>> = {},
+    params: Readonly<MillisecondsTillNextExecutionParams>,
 ) {
-    const timezone = options.timezone || userTimezone;
-    const currentTime = options.currentTime || getNowFullDate(timezone);
+    const timezone = params.timezone || userTimezone;
+    const currentTime = params.currentTime || getNowFullDate(timezone);
 
-    const nextDate = parseCronExpression(cronExpression, {
+    const nextDate = parseCronExpression({
+        cronExpression: params.cronExpression,
         currentTime,
         timezone,
     });

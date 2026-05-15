@@ -8,39 +8,46 @@ const startTime = getNowInUtcTimezone();
 
 const {defineCron, runCrons} = defineCronSuite();
 
-runCrons(undefined, [
-    defineCron('fast cron', '* * * * * *', () => {
-        const diff = diffDates(
-            {
-                start: startTime,
-                end: getNowInUtcTimezone(),
+runCrons({
+    context: undefined,
+    crons: [
+        defineCron({
+            name: 'fast cron',
+            cronExpression: '* * * * * *',
+            callback: () => {
+                const diff = diffDates(
+                    {
+                        start: startTime,
+                        end: getNowInUtcTimezone(),
+                    },
+                    {
+                        seconds: true,
+                    },
+                ).seconds;
+                log.info(`${Math.round(diff)} seconds`);
             },
-            {
-                seconds: true,
+        }),
+        defineCron({
+            name: 'slow cron',
+            cronExpression: {
+                minute: '*',
+                hour: '*',
+                dayOfMonth: '*',
+                month: '*',
+                dayOfWeek: '*',
             },
-        ).seconds;
-        log.info(`${Math.round(diff)} seconds`);
-    }),
-    defineCron(
-        'slow cron',
-        {
-            minute: '*',
-            hour: '*',
-            dayOfMonth: '*',
-            month: '*',
-            dayOfWeek: '*',
-        },
-        () => {
-            const diff = diffDates(
-                {
-                    start: startTime,
-                    end: getNowInUtcTimezone(),
-                },
-                {
-                    minutes: true,
-                },
-            ).minutes;
-            log.warning(`${Math.round(diff)} minutes`);
-        },
-    ),
-]);
+            callback: () => {
+                const diff = diffDates(
+                    {
+                        start: startTime,
+                        end: getNowInUtcTimezone(),
+                    },
+                    {
+                        minutes: true,
+                    },
+                ).minutes;
+                log.warning(`${Math.round(diff)} minutes`);
+            },
+        }),
+    ],
+});

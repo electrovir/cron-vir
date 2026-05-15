@@ -2,7 +2,24 @@ import {type MaybePromise} from '@augment-vir/common';
 import {type AnyDuration, type FullDate, type Timezone} from 'date-vir';
 import {type CronDefinition} from './cron-definition.js';
 import {type CronExpression} from './cron-expression.js';
-import {RunningCrons, type RunningCronsOptions} from './running-crons.js';
+import {RunningCrons, type RunningCronsParams} from './running-crons.js';
+
+/**
+ * Input shape for {@link defineCronSuite}'s `defineCron` function.
+ *
+ * @category Internal
+ */
+export type DefineCronParams<Context, Name extends string> = {
+    name: Name;
+    cronExpression: string | CronExpression;
+    callback: CronCallback<Context>;
+    timezone?: Timezone | undefined;
+    /**
+     * If set, each scheduled execution is delayed by a fresh random amount between `0` and this
+     * duration. Useful for de-synchronizing fleets of workers that share the same cron expression.
+     */
+    jitter?: AnyDuration | undefined;
+};
 
 /**
  * An individual cron's callback, set by running `defineCron`.
@@ -41,21 +58,24 @@ export type CronCallback<Context> = (params: {
  *
  * const {defineCron, runCrons} = defineCronSuite<MyContext>();
  *
- * const myCron = defineCron(
- *     'my cron',
- *     {
+ * const myCron = defineCron({
+ *     name: 'my cron',
+ *     cronExpression: {
  *         minute: '*',
  *         hour: '*',
  *         dayOfMonth: '*',
  *         month: '*',
  *         dayOfWeek: '*',
  *     },
- *     () => {
+ *     callback: () => {
  *         // do something
  *     },
- * );
+ * });
  *
- * runCrons({user: 'ubuntu'}, [myCron]);
+ * runCrons({
+ *     context: {user: 'ubuntu'},
+ *     crons: [myCron],
+ * });
  * ```
  */
 export function defineCronSuite<Context = undefined>() {
@@ -63,33 +83,27 @@ export function defineCronSuite<Context = undefined>() {
         /** Defines an individual cron job. */
         defineCron<const Name extends string>(
             this: void,
-            name: Name,
-            cronExpression: string | CronExpression,
-            callback: CronCallback<Context>,
-            timezone?: Timezone | undefined,
-            jitter?: AnyDuration | undefined,
+            params: Readonly<DefineCronParams<Context, Name>>,
         ) {
-            return defineCron<Context, Name>(name, cronExpression, callback, timezone, jitter);
+            return defineCron<Context, Name>(params);
         },
         /** Runs all given crons. */
         runCrons<const Name extends string>(
             this: void,
-            context: Context,
-            crons: ReadonlyArray<Readonly<CronDefinition<Context, Name>>>,
-            options?: Readonly<RunningCronsOptions> | undefined,
+            params: Readonly<RunningCronsParams<Context, Name>>,
         ) {
-            return new RunningCrons(context, crons, options);
+            return new RunningCrons(params);
         },
     };
 }
 
-function defineCron<Context, const Name extends string>(
-    name: Name,
-    cronExpression: string | CronExpression,
-    callback: CronCallback<Context>,
-    timezone?: Timezone | undefined,
-    jitter?: AnyDuration | undefined,
-): CronDefinition<Context, Name> {
+function defineCron<Context, const Name extends string>({
+    name,
+    cronExpression,
+    callback,
+    timezone,
+    jitter,
+}: Readonly<DefineCronParams<Context, Name>>): CronDefinition<Context, Name> {
     return {
         callback,
         name,

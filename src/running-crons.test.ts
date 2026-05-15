@@ -9,15 +9,18 @@ import {type RunningCronsOptions, RunningCrons} from './running-crons.js';
 
 describe(RunningCrons.name, () => {
     function setupTest<const Name extends string>(
-        context: any,
-        crons: CronDefinition<any, Name>[],
-        options?: RunningCronsOptions | undefined,
+        params: Readonly<
+            {
+                context: any;
+                crons: CronDefinition<any, Name>[];
+            } & RunningCronsOptions
+        >,
     ) {
         const events: Partial<{
             [Key in keyof typeof cronEvents]: string[];
         }> = {};
 
-        const instance = runMockCrons(context, crons, options);
+        const instance = runMockCrons(params);
         Object.values(cronEvents).forEach((eventConstructor) => {
             instance.listen(eventConstructor, (eventInstance) => {
                 const cronName = 'detail' in eventInstance ? eventInstance.detail.name : undefined;
@@ -45,7 +48,10 @@ describe(RunningCrons.name, () => {
             },
         });
 
-        const {events, instance} = setupTest(mockContext, mockCrons);
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: mockCrons,
+        });
         try {
             instance.resumeAll();
 
@@ -80,26 +86,29 @@ describe(RunningCrons.name, () => {
         });
     });
     it('waits for crons to finish', async () => {
-        const {events, instance} = setupTest(mockContext, [
-            {
-                name: 'long cron',
-                async callback() {
-                    await wait({
-                        seconds: 4,
-                    });
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: [
+                {
+                    name: 'long cron',
+                    async callback() {
+                        await wait({
+                            seconds: 4,
+                        });
+                    },
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
                 },
-                cronExpression: {
-                    second: '*',
-                    minute: '*',
-                    hour: '*',
-                    dayOfMonth: '*',
-                    month: '*',
-                    dayOfWeek: '*',
-                },
-                timezone: utcTimezone,
-                jitter: undefined,
-            },
-        ]);
+            ],
+        });
         try {
             instance.resumeAll();
 
@@ -144,26 +153,29 @@ describe(RunningCrons.name, () => {
         });
 
         const missedCounts: number[] = [];
-        const {events, instance} = setupTest(mockContext, [
-            {
-                name: 'overrun',
-                async callback() {
-                    await wait({
-                        seconds: 4,
-                    });
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: [
+                {
+                    name: 'overrun',
+                    async callback() {
+                        await wait({
+                            seconds: 4,
+                        });
+                    },
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
                 },
-                cronExpression: {
-                    second: '*',
-                    minute: '*',
-                    hour: '*',
-                    dayOfMonth: '*',
-                    month: '*',
-                    dayOfWeek: '*',
-                },
-                timezone: utcTimezone,
-                jitter: undefined,
-            },
-        ]);
+            ],
+        });
         instance.listen(cronEvents.CronMissedEvent, (event) => {
             missedCounts.push(event.detail.count);
         });
@@ -184,9 +196,9 @@ describe(RunningCrons.name, () => {
         assert.isAtLeast(firstCount, 3);
     });
     it('can immediately fire crons', async () => {
-        const {events, instance} = setupTest(
-            mockContext,
-            [
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: [
                 {
                     name: 'long cron',
                     async callback() {
@@ -206,10 +218,8 @@ describe(RunningCrons.name, () => {
                     jitter: undefined,
                 },
             ],
-            {
-                forceStartNextExecution: true,
-            },
-        );
+            forceStartNextExecution: true,
+        });
         try {
             instance.resumeAll();
 
@@ -262,38 +272,43 @@ describe(RunningCrons.name, () => {
 
     it('fails on duplicate cron names', () => {
         assert.throws(() => {
-            return new RunningCrons(undefined, [
-                {
-                    name: 'a',
-                    callback: () => {},
-                    cronExpression: {
-                        minute: 0,
-                        hour: 0,
-                        dayOfMonth: '*',
-                        month: '*',
-                        dayOfWeek: '*',
+            return new RunningCrons({
+                context: undefined,
+                crons: [
+                    {
+                        name: 'a',
+                        callback: () => {},
+                        cronExpression: {
+                            minute: 0,
+                            hour: 0,
+                            dayOfMonth: '*',
+                            month: '*',
+                            dayOfWeek: '*',
+                        },
+                        timezone: utcTimezone,
+                        jitter: undefined,
                     },
-                    timezone: utcTimezone,
-                    jitter: undefined,
-                },
-                {
-                    name: 'a',
-                    callback: () => {},
-                    cronExpression: {
-                        minute: 0,
-                        hour: 0,
-                        dayOfMonth: '*',
-                        month: '*',
-                        dayOfWeek: '*',
+                    {
+                        name: 'a',
+                        callback: () => {},
+                        cronExpression: {
+                            minute: 0,
+                            hour: 0,
+                            dayOfMonth: '*',
+                            month: '*',
+                            dayOfWeek: '*',
+                        },
+                        timezone: utcTimezone,
+                        jitter: undefined,
                     },
-                    timezone: utcTimezone,
-                    jitter: undefined,
-                },
-            ]);
+                ],
+            });
         });
     });
     it('can start paused', async () => {
-        const {events, instance} = setupTest(mockContext, mockCrons, {
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: mockCrons,
             startPaused: true,
         });
 
@@ -308,7 +323,10 @@ describe(RunningCrons.name, () => {
         }
     });
     it('pauses a single cron', async () => {
-        const {events, instance} = setupTest(mockContext, mockCrons);
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: mockCrons,
+        });
 
         try {
             assert.isTrue(instance.pauseCron('mock 2'));
@@ -340,7 +358,9 @@ describe(RunningCrons.name, () => {
         });
     });
     it('resumes a single cron', async () => {
-        const {events, instance} = setupTest(mockContext, mockCrons, {
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: mockCrons,
             startPaused: true,
         });
 
@@ -379,24 +399,27 @@ describe(RunningCrons.name, () => {
             },
         });
 
-        const {events, instance} = setupTest(mockContext, [
-            {
-                name: 'errors',
-                callback() {
-                    throw new Error('fake error');
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: [
+                {
+                    name: 'errors',
+                    callback() {
+                        throw new Error('fake error');
+                    },
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
                 },
-                cronExpression: {
-                    second: '*',
-                    minute: '*',
-                    hour: '*',
-                    dayOfMonth: '*',
-                    month: '*',
-                    dayOfWeek: '*',
-                },
-                timezone: utcTimezone,
-                jitter: undefined,
-            },
-        ]);
+            ],
+        });
 
         try {
             await waitUntil.isLengthAtLeast(2, () => events.CronStartEvent || []);
@@ -427,24 +450,27 @@ describe(RunningCrons.name, () => {
     });
     it('passes scheduledAt to the callback', async () => {
         const captured: FullDate[] = [];
-        const {instance} = setupTest(mockContext, [
-            {
-                name: 'scheduled-test',
-                callback({scheduledAt}) {
-                    captured.push(scheduledAt);
+        const {instance} = setupTest({
+            context: mockContext,
+            crons: [
+                {
+                    name: 'scheduled-test',
+                    callback({scheduledAt}) {
+                        captured.push(scheduledAt);
+                    },
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
                 },
-                cronExpression: {
-                    second: '*',
-                    minute: '*',
-                    hour: '*',
-                    dayOfMonth: '*',
-                    month: '*',
-                    dayOfWeek: '*',
-                },
-                timezone: utcTimezone,
-                jitter: undefined,
-            },
-        ]);
+            ],
+        });
 
         try {
             await waitUntil.isLengthAtLeast(1, () => captured);
@@ -462,27 +488,30 @@ describe(RunningCrons.name, () => {
             scheduledAt: FullDate;
             lastExecutionScheduledAt: FullDate | undefined;
         }[] = [];
-        const {instance} = setupTest(mockContext, [
-            {
-                name: 'last-scheduled-test',
-                callback({scheduledAt, lastExecutionScheduledAt}) {
-                    captured.push({
-                        scheduledAt,
-                        lastExecutionScheduledAt,
-                    });
+        const {instance} = setupTest({
+            context: mockContext,
+            crons: [
+                {
+                    name: 'last-scheduled-test',
+                    callback({scheduledAt, lastExecutionScheduledAt}) {
+                        captured.push({
+                            scheduledAt,
+                            lastExecutionScheduledAt,
+                        });
+                    },
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
                 },
-                cronExpression: {
-                    second: '*',
-                    minute: '*',
-                    hour: '*',
-                    dayOfMonth: '*',
-                    month: '*',
-                    dayOfWeek: '*',
-                },
-                timezone: utcTimezone,
-                jitter: undefined,
-            },
-        ]);
+            ],
+        });
 
         try {
             await waitUntil.isLengthAtLeast(2, () => captured);
@@ -500,28 +529,32 @@ describe(RunningCrons.name, () => {
         assert.deepEquals(second.lastExecutionScheduledAt, first.scheduledAt);
     });
     it('applies per-run jitter', async () => {
-        const {events, instance} = setupTest(mockContext, [
-            {
-                name: 'jittered',
-                callback: () => {},
-                cronExpression: {
-                    second: '*',
-                    minute: '*',
-                    hour: '*',
-                    dayOfMonth: '*',
-                    month: '*',
-                    dayOfWeek: '*',
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: [
+                {
+                    name: 'jittered',
+                    callback: () => {},
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    /**
+                     * A week-long jitter makes the chance of firing within the wait window below
+                     * ~7e-6, so this test is effectively deterministic without stubbing the random
+                     * source.
+                     */
+                    jitter: {
+                        days: 7,
+                    },
                 },
-                timezone: utcTimezone,
-                /**
-                 * A week-long jitter makes the chance of firing within the wait window below ~7e-6,
-                 * so this test is effectively deterministic without stubbing the random source.
-                 */
-                jitter: {
-                    days: 7,
-                },
-            },
-        ]);
+            ],
+        });
 
         try {
             await wait({
@@ -534,9 +567,9 @@ describe(RunningCrons.name, () => {
         }
     });
     it('can kill the whole thing on a cron error', async () => {
-        const {events, instance} = setupTest(
-            mockContext,
-            [
+        const {events, instance} = setupTest({
+            context: mockContext,
+            crons: [
                 {
                     name: 'errors',
                     callback() {
@@ -554,10 +587,8 @@ describe(RunningCrons.name, () => {
                     jitter: undefined,
                 },
             ],
-            {
-                abortOnError: true,
-            },
-        );
+            abortOnError: true,
+        });
 
         await waitUntil.isLengthAtLeast(1, () => events.CronStartEvent || []);
 
@@ -585,7 +616,9 @@ describe(RunningCrons.name, () => {
     });
     it('reports unhandled rejections via CronErrorEvent', () => {
         const captured: {name: string; error: Error}[] = [];
-        const instance = runMockCrons(mockContext, mockCrons, {
+        const instance = runMockCrons({
+            context: mockContext,
+            crons: mockCrons,
             startPaused: true,
         });
         instance.listen(cronEvents.CronErrorEvent, (event) => {
@@ -613,7 +646,9 @@ describe(RunningCrons.name, () => {
     });
     it('reports uncaught exceptions via CronErrorEvent', () => {
         const captured: {name: string; error: Error}[] = [];
-        const instance = runMockCrons(mockContext, mockCrons, {
+        const instance = runMockCrons({
+            context: mockContext,
+            crons: mockCrons,
             startPaused: true,
         });
         instance.listen(cronEvents.CronErrorEvent, (event) => {
@@ -641,7 +676,9 @@ describe(RunningCrons.name, () => {
     });
     it('skips the uncaughtExceptionMonitor handler when disabled', () => {
         const before = process.listenerCount('uncaughtExceptionMonitor');
-        const instance = runMockCrons(mockContext, mockCrons, {
+        const instance = runMockCrons({
+            context: mockContext,
+            crons: mockCrons,
             startPaused: true,
             disableUncaughtExceptionHandler: true,
         });
@@ -658,7 +695,9 @@ describe(RunningCrons.name, () => {
             uncaughtExceptionMonitor: process.listenerCount('uncaughtExceptionMonitor'),
         };
 
-        const instance = runMockCrons(mockContext, mockCrons, {
+        const instance = runMockCrons({
+            context: mockContext,
+            crons: mockCrons,
             startPaused: true,
         });
 

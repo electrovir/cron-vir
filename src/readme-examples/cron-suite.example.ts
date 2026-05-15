@@ -4,23 +4,23 @@ type MyContext = {user: string};
 
 const {defineCron, runCrons} = defineCronSuite<MyContext>();
 
-const myCron = defineCron(
-    'my cron',
-    {
+const myCron = defineCron({
+    name: 'my cron',
+    cronExpression: {
         minute: '*',
         hour: '*',
         dayOfMonth: '*',
         month: '*',
         dayOfWeek: '*',
     },
-    () => {
+    callback: () => {
         // do something
     },
-);
+});
 
-runCrons(
-    {
+runCrons({
+    context: {
         user: 'ubuntu',
     },
-    [myCron],
-);
+    crons: [myCron],
+});

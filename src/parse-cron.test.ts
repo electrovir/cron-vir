@@ -5,35 +5,35 @@ import {getMillisecondsTillNextExecution} from './parse-cron.js';
 
 describe(getMillisecondsTillNextExecution.name, () => {
     it('will fallback to user timezone', () => {
-        assert.isDefined(getMillisecondsTillNextExecution('* * * * *'));
+        assert.isDefined(
+            getMillisecondsTillNextExecution({
+                cronExpression: '* * * * *',
+            }),
+        );
     });
     itCases(getMillisecondsTillNextExecution, [
         {
             it: 'handles a string minute cron expression',
-            inputs: [
-                '* * * * *',
-                {
-                    timezone: utcTimezone,
-                    currentTime: createUtcFullDate(1_752_158_800_439),
-                },
-            ],
+            input: {
+                cronExpression: '* * * * *',
+                timezone: utcTimezone,
+                currentTime: createUtcFullDate(1_752_158_800_439),
+            },
             expect: 19_561,
         },
         {
             it: 'handles a string second cron expression',
-            inputs: [
-                '* * * * * *',
-                {
-                    timezone: utcTimezone,
-                    currentTime: createUtcFullDate(1_752_158_800_439),
-                },
-            ],
+            input: {
+                cronExpression: '* * * * * *',
+                timezone: utcTimezone,
+                currentTime: createUtcFullDate(1_752_158_800_439),
+            },
             expect: 561,
         },
         {
             it: 'handles an object cron expression',
-            inputs: [
-                {
+            input: {
+                cronExpression: {
                     minute: {
                         all: true,
                     },
@@ -50,11 +50,9 @@ describe(getMillisecondsTillNextExecution.name, () => {
                         all: true,
                     },
                 },
-                {
-                    timezone: utcTimezone,
-                    currentTime: createUtcFullDate(1_752_158_800_439),
-                },
-            ],
+                timezone: utcTimezone,
+                currentTime: createUtcFullDate(1_752_158_800_439),
+            },
             expect: 19_561,
         },
     ]);

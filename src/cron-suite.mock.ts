@@ -11,9 +11,9 @@ const {defineCron, runCrons} = defineCronSuite<typeof mockContext>();
 export const runMockCrons = runCrons;
 
 export const mockCrons = [
-    defineCron(
-        'mock 1',
-        {
+    defineCron({
+        name: 'mock 1',
+        cronExpression: {
             second: '*/2',
             minute: '*',
             hour: '*',
@@ -21,12 +21,12 @@ export const mockCrons = [
             month: '*',
             dayOfWeek: '*',
         },
-        () => {},
-        utcTimezone,
-    ),
-    defineCron(
-        'mock 2',
-        {
+        callback: () => {},
+        timezone: utcTimezone,
+    }),
+    defineCron({
+        name: 'mock 2',
+        cronExpression: {
             second: '*/5',
             minute: '*',
             hour: '*',
@@ -34,11 +34,11 @@ export const mockCrons = [
             month: '*',
             dayOfWeek: '*',
         },
-        async () => {
+        callback: async () => {
             await wait({
                 seconds: 1.5,
             });
         },
-        utcTimezone,
-    ),
+        timezone: utcTimezone,
+    }),
 ];
