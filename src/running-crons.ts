@@ -332,12 +332,14 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                     status.missedCount = 0;
                 }
 
+                const startedAt = getNowInUtcTimezone();
                 this.log.info(`Starting cron '${cron.name}'`);
                 this.dispatch(
                     new CronStartEvent({
                         detail: {
                             name: cron.name,
-                            at: getNowInUtcTimezone(),
+                            at: startedAt,
+                            scheduledStartAt: scheduledAt,
                         },
                     }),
                 );
@@ -376,6 +378,17 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                                 name: cron.name,
                                 error,
                                 at: now,
+                                startedAt,
+                                scheduledStartAt: scheduledAt,
+                                duration: diffDates(
+                                    {
+                                        start: startedAt,
+                                        end: now,
+                                    },
+                                    {
+                                        milliseconds: true,
+                                    },
+                                ),
                             },
                         }),
                     );

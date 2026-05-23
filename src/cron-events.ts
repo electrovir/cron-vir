@@ -1,5 +1,5 @@
 import {type Values} from '@augment-vir/common';
-import {type FullDate, type UtcTimezone} from 'date-vir';
+import {type Duration, type DurationUnit, type FullDate, type UtcTimezone} from 'date-vir';
 import {defineTypedCustomEvent, defineTypedEvent} from 'typed-event-target';
 
 /**
@@ -30,6 +30,11 @@ export class CronPauseEvent extends defineTypedCustomEvent<{
 export class CronStartEvent extends defineTypedCustomEvent<{
     name: string;
     at: FullDate<UtcTimezone>;
+    /**
+     * The time at which this run was scheduled to start, based on the cron expression. May differ
+     * from `at` due to event-loop blocking or other delays.
+     */
+    scheduledStartAt: FullDate<UtcTimezone>;
 }>()('cron-start') {}
 
 /**
@@ -47,6 +52,15 @@ export class CronFinishEvent extends defineTypedCustomEvent<{
     name: string;
     error: undefined | Error;
     at: FullDate<UtcTimezone>;
+    /** When the cron callback actually started executing. */
+    startedAt: FullDate<UtcTimezone>;
+    /**
+     * The time at which this run was scheduled to start, based on the cron expression. May differ
+     * from `startedAt` due to event-loop blocking or other delays.
+     */
+    scheduledStartAt: FullDate<UtcTimezone>;
+    /** How long the cron callback took to execute. */
+    duration: Duration<DurationUnit.Milliseconds>;
 }>()('cron-finish') {}
 /**
  * Emitted when a cron job errors out in its execution.
