@@ -53,6 +53,59 @@ export function parseCronExpression({
 }
 
 /**
+ * Params for {@link getNextScheduledTime}.
+ *
+ * @category Internal
+ */
+export type NextScheduledTimeParams = {
+    cronExpression: string | CronExpression;
+    /** The clean cron boundary the previous execution was scheduled for, if any. */
+    previousScheduledAt: FullDate | undefined;
+    /** The current wall-clock time. */
+    now: FullDate;
+    timezone: Timezone;
+};
+
+/**
+ * Computes the next scheduled execution time for a cron, guarding against schedule drift.
+ *
+ * @category Internal
+ */
+export function getNextScheduledTime({
+    cronExpression,
+    previousScheduledAt,
+    now,
+    timezone,
+}: Readonly<NextScheduledTimeParams>): FullDate {
+    const nextFromPrevious = parseCronExpression({
+        cronExpression,
+        currentTime: previousScheduledAt ?? now,
+        timezone,
+    });
+
+    if (
+        previousScheduledAt &&
+        diffDates(
+            {
+                start: now,
+                end: nextFromPrevious,
+            },
+            {
+                milliseconds: true,
+            },
+        ).milliseconds <= 0
+    ) {
+        return parseCronExpression({
+            cronExpression,
+            currentTime: now,
+            timezone,
+        });
+    }
+
+    return nextFromPrevious;
+}
+
+/**
  * Params for {@link getMillisecondsTillNextExecution}.
  *
  * @category Internal

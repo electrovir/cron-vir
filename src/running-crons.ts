@@ -32,7 +32,7 @@ import {
     CronsDestroyEvent,
     CronStartEvent,
 } from './cron-events.js';
-import {parseCronExpression} from './parse-cron.js';
+import {getNextScheduledTime} from './parse-cron.js';
 
 /**
  * Constructor params for {@link RunningCrons}.
@@ -266,9 +266,10 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             /* node:coverage ignore next 1: all tests use UTC timezones */
             cron.timezone ?? this.params.timezone ?? userTimezone;
         const now = getNowFullDate(cronTimezone);
-        const nextScheduledTime = parseCronExpression({
+        const nextScheduledTime = getNextScheduledTime({
             cronExpression: cron.cronExpression,
-            currentTime: previousScheduledAt ?? now,
+            previousScheduledAt,
+            now,
             timezone: cronTimezone,
         });
         const baseTimeoutMilliseconds = Math.max(
