@@ -8,7 +8,6 @@ import {
     toTimestamp,
     userTimezone,
     type FullDate,
-    type Timezone,
 } from 'date-vir';
 import {createExpressionString, type CronExpression} from './cron-expression.js';
 
@@ -20,7 +19,7 @@ import {createExpressionString, type CronExpression} from './cron-expression.js'
 export type ParseCronParams = {
     cronExpression: string | CronExpression;
     currentTime: FullDate;
-    timezone: Timezone;
+    timezone: string;
 };
 
 /**
@@ -63,7 +62,7 @@ export type NextScheduledTimeParams = {
     previousScheduledAt: FullDate | undefined;
     /** The current wall-clock time. */
     now: FullDate;
-    timezone: Timezone;
+    timezone: string;
 };
 
 /**

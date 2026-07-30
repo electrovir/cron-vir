@@ -1,5 +1,5 @@
 import {assert, check} from '@augment-vir/assert';
-import {mapObjectValues, stringify, type Values} from '@augment-vir/common';
+import {mapObjectValues, stringify, type RequireExactlyOne, type Values} from '@augment-vir/common';
 import {
     type DayOfMonth,
     type DayOfWeekIndex,
@@ -8,7 +8,6 @@ import {
     type MonthNumber,
     type Second,
 } from 'date-vir';
-import {type RequireExactlyOne} from 'type-fest';
 
 /**
  * An entire cron expression represented with a type-safe object.

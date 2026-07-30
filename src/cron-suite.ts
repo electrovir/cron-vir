@@ -1,5 +1,5 @@
 import {type MaybePromise} from '@augment-vir/common';
-import {type AnyDuration, type FullDate, type Timezone} from 'date-vir';
+import {type AnyDuration, type FullDate} from 'date-vir';
 import {type CronDefinition} from './cron-definition.js';
 import {type CronExpression} from './cron-expression.js';
 import {RunningCrons, type RunningCronsParams} from './running-crons.js';
@@ -13,7 +13,7 @@ export type DefineCronParams<Context, Name extends string> = {
     name: Name;
     cronExpression: string | CronExpression;
     callback: CronCallback<Context>;
-    timezone?: Timezone | undefined;
+    timezone?: string | undefined;
     /**
      * If set, each scheduled execution is delayed by a fresh random amount between `0` and this
      * duration. Useful for de-synchronizing fleets of workers that share the same cron expression.
