@@ -15,6 +15,7 @@ import {
     type FullDate,
     getNowFullDate,
     getNowInUtcTimezone,
+    type Timezone,
     toNewTimezone,
     userTimezone,
     utcTimezone,
@@ -89,7 +90,7 @@ export type RunningCronsOptions = PartialWithUndefined<{
      * If not set, the user's current timezone will be used. Note that individual crons can override
      * this timezone.
      */
-    timezone: string;
+    timezone: Timezone;
     /**
      * If `true`, uncaught exception error handlers are _not_ attached, which will allow unhandled
      * async throws to crash the whole process.
