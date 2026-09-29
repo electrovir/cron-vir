@@ -269,7 +269,7 @@ describe(RunningCrons.name, () => {
                 crons: [
                     {
                         name: 'a',
-                        callback: () => {},
+                        callback() {},
                         cronExpression: {
                             minute: 0,
                             hour: 0,
@@ -282,7 +282,7 @@ describe(RunningCrons.name, () => {
                     },
                     {
                         name: 'a',
-                        callback: () => {},
+                        callback() {},
                         cronExpression: {
                             minute: 0,
                             hour: 0,
@@ -528,7 +528,9 @@ describe(RunningCrons.name, () => {
         const capturedLastScheduledAt: (FullDate | undefined)[] = [];
         const {events, instance} = setupTest({
             context: mockContext,
-            shouldExecute: () => state.isEnabled,
+            shouldExecute() {
+                return state.isEnabled;
+            },
             crons: [
                 {
                     name: 'gated',
@@ -564,7 +566,7 @@ describe(RunningCrons.name, () => {
         assert.isUndefined(events.CronMissedEvent);
         assert.deepEquals(capturedLastScheduledAt[0], skippedScheduledAt.at(-1));
     });
-    it('skips executions when shouldExecute throws', async () => {
+    it('still executes when shouldExecute throws', async () => {
         const {events, instance} = setupTest({
             context: mockContext,
             shouldExecute() {
@@ -573,7 +575,7 @@ describe(RunningCrons.name, () => {
             crons: [
                 {
                     name: 'gate-errors',
-                    callback: () => {},
+                    callback() {},
                     cronExpression: {
                         second: '*',
                         minute: '*',
@@ -589,7 +591,7 @@ describe(RunningCrons.name, () => {
         });
 
         try {
-            await waitUntil.isLengthAtLeast(1, () => events.CronSkipEvent || []);
+            await waitUntil.isLengthAtLeast(1, () => events.CronFinishEvent || []);
         } finally {
             instance.destroy();
         }
@@ -601,7 +603,58 @@ describe(RunningCrons.name, () => {
             CronErrorEvent: [
                 'gate-errors',
             ],
-            CronSkipEvent: [
+            CronStartEvent: [
+                'gate-errors',
+            ],
+            CronFinishEvent: [
+                'gate-errors',
+            ],
+            CronPauseEvent: [
+                'gate-errors',
+            ],
+        });
+    });
+    it('can kill the whole thing on a shouldExecute error', async () => {
+        const callbackCalls: string[] = [];
+        const {events} = setupTest({
+            context: mockContext,
+            abortOnError: true,
+            shouldExecute() {
+                throw new Error('fake gate error');
+            },
+            crons: [
+                {
+                    name: 'gate-errors',
+                    callback() {
+                        callbackCalls.push('gate-errors');
+                    },
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
+                },
+            ],
+        });
+
+        await waitUntil.isLengthAtLeast(1, () => events.CronPauseEvent || []);
+        /** Give a callback that incorrectly runs after destroy a chance to run. */
+        await wait({
+            seconds: 1,
+        });
+
+        assert.isEmpty(callbackCalls);
+
+        assert.deepEquals(events, {
+            CronResumeEvent: [
+                'gate-errors',
+            ],
+            CronErrorEvent: [
                 'gate-errors',
             ],
             CronPauseEvent: [
@@ -615,7 +668,7 @@ describe(RunningCrons.name, () => {
             crons: [
                 {
                     name: 'jittered',
-                    callback: () => {},
+                    callback() {},
                     cronExpression: {
                         second: '*',
                         minute: '*',

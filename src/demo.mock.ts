@@ -14,7 +14,7 @@ runCrons({
         defineCron({
             name: 'fast cron',
             cronExpression: '* * * * * *',
-            callback: () => {
+            callback() {
                 const diff = diffDates(
                     {
                         start: startTime,
@@ -36,7 +36,7 @@ runCrons({
                 month: '*',
                 dayOfWeek: '*',
             },
-            callback: () => {
+            callback() {
                 const diff = diffDates(
                     {
                         start: startTime,

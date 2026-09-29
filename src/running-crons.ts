@@ -449,7 +449,10 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         return true;
     }
 
-    /** Runs the `shouldExecute` param, treating a thrown error as `false`. */
+    /**
+     * Runs the `shouldExecute` param. If it throws, the execution still proceeds, unless
+     * `abortOnError` is set, in which case everything is destroyed and the execution is skipped.
+     */
     protected async checkShouldExecute({
         cron,
         scheduledAt,
@@ -484,6 +487,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
             );
             if (this.params.abortOnError) {
                 this.destroy();
+                return false;
             }
             return true;
         }

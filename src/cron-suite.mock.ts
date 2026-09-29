@@ -21,7 +21,7 @@ export const mockCrons = [
             month: '*',
             dayOfWeek: '*',
         },
-        callback: () => {},
+        callback() {},
         timezone: utcTimezone,
     }),
     defineCron({
@@ -34,7 +34,7 @@ export const mockCrons = [
             month: '*',
             dayOfWeek: '*',
         },
-        callback: async () => {
+        async callback() {
             await wait({
                 seconds: 1.5,
             });

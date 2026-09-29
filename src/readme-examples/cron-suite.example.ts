@@ -13,7 +13,7 @@ const myCron = defineCron({
         month: '*',
         dayOfWeek: '*',
     },
-    callback: () => {
+    callback() {
         // do something
     },
 });
