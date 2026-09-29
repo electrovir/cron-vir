@@ -38,6 +38,18 @@ export class CronStartEvent extends defineTypedCustomEvent<{
 }>()('cron-start') {}
 
 /**
+ * Emitted when a cron job's execution is skipped because `shouldExecute` blocked it.
+ *
+ * @category Events
+ */
+export class CronSkipEvent extends defineTypedCustomEvent<{
+    name: string;
+    at: FullDate<UtcTimezone>;
+    /** The time at which the skipped run was scheduled to start, based on the cron expression. */
+    scheduledStartAt: FullDate<UtcTimezone>;
+}>()('cron-skip') {}
+
+/**
  * Emitted when a `RunningCrons` instance gets destroyed.
  *
  * @category Events
@@ -96,6 +108,7 @@ export const cronEvents = {
     CronMissedEvent,
     CronPauseEvent,
     CronResumeEvent,
+    CronSkipEvent,
     CronStartEvent,
     CronsDestroyEvent,
 };

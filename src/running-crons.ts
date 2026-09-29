@@ -6,6 +6,7 @@ import {
     extractDuplicates,
     log,
     type LoggerLogs,
+    type MaybePromise,
     type PartialWithUndefined,
     randomInteger,
 } from '@augment-vir/common';
@@ -30,9 +31,21 @@ import {
     CronPauseEvent,
     CronResumeEvent,
     CronsDestroyEvent,
+    CronSkipEvent,
     CronStartEvent,
 } from './cron-events.js';
 import {getNextScheduledTime} from './parse-cron.js';
+
+/**
+ * Params for RunningCronsParams.shouldExecute.
+ *
+ * @category Internal
+ */
+export type ShouldExecuteParams<Context, Name extends string> = {
+    cronName: Name;
+    context: NoInfer<Context>;
+    scheduledAt: Readonly<FullDate>;
+};
 
 /**
  * Constructor params for {@link RunningCrons}.
@@ -42,6 +55,13 @@ import {getNextScheduledTime} from './parse-cron.js';
 export type RunningCronsParams<Context, Name extends string> = RunningCronsOptions & {
     context: Context;
     crons: ReadonlyArray<Readonly<CronDefinition<Context, Name>>>;
+    /**
+     * A callback to determine if a cron should execute. Omit or set to `undefined` or return `true`
+     * to enable the cron to execute. Return `false` to block it from executing.
+     */
+    shouldExecute?:
+        | ((params: Readonly<ShouldExecuteParams<Context, Name>>) => MaybePromise<boolean>)
+        | undefined;
 };
 
 /**
@@ -254,7 +274,7 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         immediate,
         previousScheduledAt,
     }: Readonly<{
-        cron: Readonly<CronDefinition<Context, string>>;
+        cron: Readonly<CronDefinition<Context, Name>>;
         immediate?: boolean | undefined;
         previousScheduledAt?: FullDate | undefined;
     }>): boolean {
@@ -333,6 +353,31 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                     status.missedCount = 0;
                 }
 
+                status.inFlight = true;
+                if (
+                    !(await this.checkShouldExecute({
+                        cron,
+                        scheduledAt,
+                    }))
+                ) {
+                    status.inFlight = false;
+                    const now = getNowInUtcTimezone();
+
+                    this.lastExecutionTimes[cron.name] = now;
+                    this.lastExecutionScheduledAtTimes[cron.name] = scheduledAt;
+                    this.log.faint(`Skipped cron '${cron.name}'`);
+                    this.dispatch(
+                        new CronSkipEvent({
+                            detail: {
+                                name: cron.name,
+                                at: now,
+                                scheduledStartAt: scheduledAt,
+                            },
+                        }),
+                    );
+                    return;
+                }
+
                 const startedAt = getNowInUtcTimezone();
                 this.log.info(`Starting cron '${cron.name}'`);
                 this.dispatch(
@@ -344,7 +389,6 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
                         },
                     }),
                 );
-                status.inFlight = true;
                 let error: Error | undefined;
                 try {
                     await cron.callback({
@@ -403,6 +447,46 @@ export class RunningCrons<Context, Name extends string> extends ListenTarget<All
         );
 
         return true;
+    }
+
+    /** Runs the `shouldExecute` param, treating a thrown error as `false`. */
+    protected async checkShouldExecute({
+        cron,
+        scheduledAt,
+    }: Readonly<{
+        cron: Readonly<CronDefinition<Context, Name>>;
+        scheduledAt: Readonly<FullDate>;
+    }>) {
+        if (!this.params.shouldExecute) {
+            return true;
+        }
+
+        try {
+            return await this.params.shouldExecute({
+                cronName: cron.name,
+                context: this.params.context,
+                scheduledAt,
+            });
+        } catch (caught) {
+            const error = ensureErrorAndPrependMessage(
+                caught,
+                `Cron '${cron.name}' shouldExecute failed:`,
+            );
+            this.log.error(error);
+            this.dispatch(
+                new CronErrorEvent({
+                    detail: {
+                        error,
+                        name: cron.name,
+                        at: getNowInUtcTimezone(),
+                    },
+                }),
+            );
+            if (this.params.abortOnError) {
+                this.destroy();
+            }
+            return true;
+        }
     }
 
     /**

@@ -2,20 +2,12 @@ import {assert, waitUntil} from '@augment-vir/assert';
 import {getOrSet, wait} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
 import {type FullDate, getNowInUtcTimezone, utcTimezone} from 'date-vir';
-import {type CronDefinition} from './cron-definition.js';
-import {cronEvents} from './cron-events.js';
+import {cronEvents, CronSkipEvent} from './cron-events.js';
 import {mockContext, mockCrons, runMockCrons} from './cron-suite.mock.js';
-import {type RunningCronsOptions, RunningCrons} from './running-crons.js';
+import {RunningCrons, type RunningCronsParams} from './running-crons.js';
 
 describe(RunningCrons.name, () => {
-    function setupTest<const Name extends string>(
-        params: Readonly<
-            {
-                context: any;
-                crons: CronDefinition<any, Name>[];
-            } & RunningCronsOptions
-        >,
-    ) {
+    function setupTest<const Name extends string>(params: Readonly<RunningCronsParams<any, Name>>) {
         const events: Partial<{
             [Key in keyof typeof cronEvents]: string[];
         }> = {};
@@ -527,6 +519,95 @@ describe(RunningCrons.name, () => {
         assert.isDefined(second);
         assert.strictEquals(first.lastExecutionScheduledAt, undefined);
         assert.deepEquals(second.lastExecutionScheduledAt, first.scheduledAt);
+    });
+    it('skips executions when shouldExecute returns false', async () => {
+        const state = {
+            isEnabled: false,
+        };
+        const skippedScheduledAt: FullDate[] = [];
+        const capturedLastScheduledAt: (FullDate | undefined)[] = [];
+        const {events, instance} = setupTest({
+            context: mockContext,
+            shouldExecute: () => state.isEnabled,
+            crons: [
+                {
+                    name: 'gated',
+                    callback({lastExecutionScheduledAt}) {
+                        capturedLastScheduledAt.push(lastExecutionScheduledAt);
+                    },
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
+                },
+            ],
+        });
+        instance.listen(CronSkipEvent, (event) => {
+            skippedScheduledAt.push(event.detail.scheduledStartAt);
+        });
+
+        try {
+            await waitUntil.isLengthAtLeast(2, () => events.CronSkipEvent || []);
+            assert.isUndefined(events.CronStartEvent);
+            state.isEnabled = true;
+            await waitUntil.isLengthAtLeast(1, () => capturedLastScheduledAt);
+        } finally {
+            instance.destroy();
+        }
+
+        assert.isUndefined(events.CronMissedEvent);
+        assert.deepEquals(capturedLastScheduledAt[0], skippedScheduledAt.at(-1));
+    });
+    it('skips executions when shouldExecute throws', async () => {
+        const {events, instance} = setupTest({
+            context: mockContext,
+            shouldExecute() {
+                throw new Error('fake gate error');
+            },
+            crons: [
+                {
+                    name: 'gate-errors',
+                    callback: () => {},
+                    cronExpression: {
+                        second: '*',
+                        minute: '*',
+                        hour: '*',
+                        dayOfMonth: '*',
+                        month: '*',
+                        dayOfWeek: '*',
+                    },
+                    timezone: utcTimezone,
+                    jitter: undefined,
+                },
+            ],
+        });
+
+        try {
+            await waitUntil.isLengthAtLeast(1, () => events.CronSkipEvent || []);
+        } finally {
+            instance.destroy();
+        }
+
+        assert.deepEquals(events, {
+            CronResumeEvent: [
+                'gate-errors',
+            ],
+            CronErrorEvent: [
+                'gate-errors',
+            ],
+            CronSkipEvent: [
+                'gate-errors',
+            ],
+            CronPauseEvent: [
+                'gate-errors',
+            ],
+        });
     });
     it('applies per-run jitter', async () => {
         const {events, instance} = setupTest({
