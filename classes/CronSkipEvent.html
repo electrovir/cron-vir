@@ -1,4 +1,4 @@
-<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>CronsDestroyEvent | cron-vir - v2.2.0</title><meta name="description" content="Documentation for cron-vir"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css?cache=1790690937191"/><link rel="stylesheet" href="../assets/highlight.css?cache=1790690937191"/><script defer src="../assets/main.js?cache=1790690937191"></script><script async src="../assets/icons.js?cache=1790690937191" id="tsd-icons-script"></script><script async src="../assets/search.js?cache=1790690937191" id="tsd-search-script"></script><script async src="../assets/navigation.js?cache=1790690937191" id="tsd-nav-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>CronSkipEvent | cron-vir - v2.2.0</title><meta name="description" content="Documentation for cron-vir"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css?cache=1790690937191"/><link rel="stylesheet" href="../assets/highlight.css?cache=1790690937191"/><script defer src="../assets/main.js?cache=1790690937191"></script><script async src="../assets/icons.js?cache=1790690937191" id="tsd-icons-script"></script><script async src="../assets/search.js?cache=1790690937191" id="tsd-search-script"></script><script async src="../assets/navigation.js?cache=1790690937191" id="tsd-nav-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
 <div class="tsd-toolbar-contents container"><a href="../index.html" class="title">cron-vir - v2.2.0</a>
 <div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
 <ul role="listbox" id="tsd-search-results"></ul>
@@ -8,19 +8,19 @@
 <div class="col-content">
 <div class="tsd-page-title">
 <ul class="tsd-breadcrumb" aria-label="Breadcrumb">
-<li><a href="" aria-current="page">CronsDestroyEvent</a></li></ul>
-<h1>Class CronsDestroyEvent</h1></div>
+<li><a href="" aria-current="page">CronSkipEvent</a></li></ul>
+<h1>Class CronSkipEvent</h1></div>
 <section class="tsd-panel tsd-comment">
-<div class="tsd-comment tsd-typography"><p>Emitted when a <code>RunningCrons</code> instance gets destroyed.</p>
+<div class="tsd-comment tsd-typography"><p>Emitted when a cron job's execution is skipped because <code>shouldExecute</code> blocked it.</p>
 </div></section>
-<section class="tsd-panel tsd-hierarchy" data-refl="50">
+<section class="tsd-panel tsd-hierarchy" data-refl="39">
 <h4>Hierarchy</h4>
 <ul class="tsd-hierarchy">
-<li class="tsd-hierarchy-item"><span class="tsd-signature-type">Event</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">this</span><span class="tsd-signature-symbol">&gt;</span> <span class="tsd-signature-symbol">&amp;</span> <span class="tsd-signature-type">TypedEvent</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">&quot;crons-destroy&quot;</span><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">this</span><span class="tsd-signature-symbol">&gt;</span>
+<li class="tsd-hierarchy-item"><span class="tsd-signature-type">TypedCustomEvent</span><span class="tsd-signature-symbol">&lt;</span><br/>    <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">at</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{}</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">name</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">scheduledStartAt</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{}</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-signature-type">&quot;cron-skip&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-signature-type">this</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">&gt;</span>
 <ul class="tsd-hierarchy">
-<li class="tsd-hierarchy-item"><span class="tsd-hierarchy-target">CronsDestroyEvent</span></li></ul></li></ul></section><aside class="tsd-sources">
+<li class="tsd-hierarchy-item"><span class="tsd-hierarchy-target">CronSkipEvent</span></li></ul></li></ul></section><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/electrovir/cron-vir/blob/7603ec318c441c6344942c4da1eab18bf61d8ba1/src/cron-events.ts#L57">src/cron-events.ts:57</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/electrovir/cron-vir/blob/7603ec318c441c6344942c4da1eab18bf61d8ba1/src/cron-events.ts#L45">src/cron-events.ts:45</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -37,16 +37,21 @@
 <h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-external">
 <li class="tsd-is-external">
-<div class="tsd-signature tsd-anchor-link" id="constructorcronsdestroyevent"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">CronsDestroyEvent</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">eventInitDict</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">EventInit</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">CronsDestroyEvent</a><a href="#constructorcronsdestroyevent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-signature tsd-anchor-link" id="constructorcronskipevent"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">CronSkipEvent</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">eventInitDict</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{}</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">CronSkipEvent</a><a href="#constructorcronskipevent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
 <div class="tsd-description">
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
 <ul class="tsd-parameter-list">
-<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">eventInitDict</span>: <span class="tsd-signature-type">EventInit</span></span></li></ul></div>
-<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">CronsDestroyEvent</a></h4><aside class="tsd-sources">
-<p>Inherited from defineTypedEvent(&#39;crons-destroy&#39;).constructor</p>
+<li><span><span class="tsd-kind-parameter">eventInitDict</span>: <span class="tsd-signature-symbol">{}</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">CronSkipEvent</a></h4><aside class="tsd-sources">
+<p>Inherited from defineTypedCustomEvent&lt;{
+    name: string;
+    at: FullDate&lt;UtcTimezone&gt;;
+    /** The time at which the skipped run was scheduled to start, based on the cron expression. */
+    scheduledStartAt: FullDate&lt;UtcTimezone&gt;;
+}&gt;()(&#39;cron-skip&#39;).constructor</p>
 <ul>
-<li>Defined in node_modules/typed-event-target/dist/events/typed-event.d.ts:28</li></ul></aside></div></li></ul></section></section></details></div>
+<li>Defined in node_modules/typed-event-target/dist/events/typed-custom-event.d.ts:28</li></ul></aside></div></li></ul></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
